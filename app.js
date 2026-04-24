@@ -375,8 +375,8 @@ function setRow(exIdx, setIdx, set, ex) {
   return `
     <div class="set-row ${s.done ? "logged" : ""} ${isWarmup ? "warmup" : ""} ${isDrop ? "dropset-row" : ""}" data-ex="${exIdx}" data-si="${setIdx}">
       <div class="idx ${isWarmup ? "warmup-idx" : ""} ${isDrop ? "drop-idx" : ""}" onclick="toggleSetType(${exIdx},${setIdx})" title="Переключить тип">${label}</div>
-      <input type="number" inputmode="decimal" step="0.5" placeholder="${esc(wPh)}" value="${s.weight ?? ""}" onchange="updateSet(${exIdx},${setIdx},'weight',this.value)">
-      <input type="number" inputmode="numeric" step="1" placeholder="${esc(rPh)}" value="${s.reps ?? ""}" onchange="updateSet(${exIdx},${setIdx},'reps',this.value)" onblur="maybeAutoLog(${exIdx},${setIdx})" onkeydown="if(event.key==='Enter'){this.blur();}">
+      <input type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="${esc(wPh)}" value="${s.weight ?? ""}" onchange="updateSet(${exIdx},${setIdx},'weight',this.value)">
+      <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="${esc(rPh)}" value="${s.reps ?? ""}" onchange="updateSet(${exIdx},${setIdx},'reps',this.value)" onblur="maybeAutoLog(${exIdx},${setIdx})" onkeydown="if(event.key==='Enter'){this.blur();}">
       <div class="del" onclick="${s.done ? `unlogSet(${exIdx},${setIdx})` : `logSet(${exIdx},${setIdx})`}">${s.done ? icon("undo",16) : icon("check",16)}</div>
       ${isDrop && s.drops ? renderDrops(exIdx, setIdx, s.drops) : ""}
       ${isDrop ? `<button class="btn sm ghost drop-add" onclick="addDrop(${exIdx},${setIdx})">+ drop</button>` : ""}
@@ -388,8 +388,8 @@ function renderDrops(ei, si, drops) {
   return drops.map((d, di) => `
     <div class="drop-row">
       <div class="idx drop-idx">d${di+1}</div>
-      <input type="number" inputmode="decimal" step="0.5" placeholder="0" value="${d.weight ?? ""}" onchange="updateDrop(${ei},${si},${di},'weight',this.value)">
-      <input type="number" inputmode="numeric" step="1" placeholder="0" value="${d.reps ?? ""}" onchange="updateDrop(${ei},${si},${di},'reps',this.value)">
+      <input type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0" value="${d.weight ?? ""}" onchange="updateDrop(${ei},${si},${di},'weight',this.value)">
+      <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="${d.reps ?? ""}" onchange="updateDrop(${ei},${si},${di},'reps',this.value)">
       <div class="del" onclick="removeDrop(${ei},${si},${di})">${icon("x",14)}</div>
     </div>
   `).join("");
@@ -426,11 +426,16 @@ function toggleExercise(i) {
   renderWorkout($("#app"));
 }
 
+function parseNum(value) {
+  if (value === "" || value == null) return "";
+  const n = Number(String(value).replace(",", "."));
+  return Number.isFinite(n) ? n : "";
+}
 function updateSet(ei, si, field, value) {
   const s = currentSession();
   const ex = s.exercises[ei];
   while (ex.sets.length <= si) ex.sets.push({ weight: "", reps: "", done: false, type: defaultSetType(ex, ex.sets.length) });
-  ex.sets[si][field] = value === "" ? "" : Number(value);
+  ex.sets[si][field] = parseNum(value);
   save();
 }
 function maybeAutoLog(ei, si) {
@@ -505,7 +510,7 @@ function addDrop(ei, si) {
 function updateDrop(ei, si, di, field, value) {
   const s = currentSession();
   const set = s.exercises[ei].sets[si];
-  set.drops[di][field] = value === "" ? "" : Number(value);
+  set.drops[di][field] = parseNum(value);
   save();
 }
 function removeDrop(ei, si, di) {
@@ -521,7 +526,7 @@ function updateCardio(ei, field, value) {
   const s = currentSession();
   const ex = s.exercises[ei];
   if (!ex.cardio) ex.cardio = { duration: "", type: "", hr: "" };
-  ex.cardio[field] = field === "type" ? value : (value === "" ? "" : Number(value));
+  ex.cardio[field] = field === "type" ? value : parseNum(value);
   ex._open = true;
   save();
 }
@@ -941,7 +946,7 @@ function openBodyWeightModal() {
       <div class="handle"></div>
       <h2>Записать вес тела</h2>
       <div class="stack" style="margin-top:16px">
-        <input type="number" id="bwInput" step="0.1" inputmode="decimal" placeholder="75.5 кг" autofocus>
+        <input type="text" id="bwInput" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="75,5 кг" autofocus>
         <button class="btn primary block" onclick="saveBW()">Сохранить</button>
         <button class="btn ghost block" onclick="closeModal()">Отмена</button>
       </div>
@@ -951,7 +956,8 @@ function openBodyWeightModal() {
   setTimeout(() => $("#bwInput")?.focus(), 50);
 }
 function saveBW() {
-  const v = parseFloat($("#bwInput").value);
+  const raw = $("#bwInput").value;
+  const v = parseFloat(String(raw).replace(",", "."));
   if (!v || v < 20 || v > 400) { toast("Введите корректный вес"); return; }
   const today = new Date().toISOString().slice(0,10);
   state.bodyWeights = state.bodyWeights.filter(b => b.date.slice(0,10) !== today);
