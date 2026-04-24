@@ -185,7 +185,7 @@ function renderHome(app) {
           <div style="font-size:22px; font-weight:700">${lastBW ? lastBW.weight + " кг" : "—"}</div>
           ${lastBW ? `<div class="small muted">${fmtDate(lastBW.date)}</div>` : ""}
         </div>
-        <button class="btn sm" onclick="openBodyWeightModal()">+ Записать</button>
+        <button class="btn sm" onclick="openBodyWeightModal()">${icon("plus",14)} Записать</button>
       </div>
     </div>
 
@@ -196,7 +196,7 @@ function renderHome(app) {
           <div class="title">${esc(s.dayName)}</div>
           <div class="sub">${fmtDateTime(s.startedAt)} · ${countSets(s)} подходов</div>
         </div>
-        <div class="right">→</div>
+        <div class="right">${icon("chevronRight",18)}</div>
       </div>
     `).join("") : `<div class="empty">Пока нет завершённых тренировок</div>`}
   `;
@@ -266,12 +266,12 @@ function renderWorkout(app) {
 
   app.innerHTML = `
     <header class="top">
-      <button class="btn sm ghost" onclick="location.hash='home'">← Назад</button>
+      <button class="btn sm ghost" onclick="location.hash='home'">${icon("arrowLeft",16)} Назад</button>
       <button class="btn sm" onclick="finishWorkout()">Завершить</button>
     </header>
     <h1>${esc(s.dayName)}</h1>
     <div class="small muted">${esc(s.block)}</div>
-    <div class="pill" style="margin-top:8px">📅 ${fmtDateTime(s.startedAt)}</div>
+    <div class="pill" style="margin-top:8px">${icon("calendar", 13)} ${fmtDateTime(s.startedAt)}</div>
     <div class="progress" style="margin-top:10px"><div style="width:${pct}%"></div></div>
     <div class="small muted" style="margin-top:6px">${doneEx} / ${s.exercises.length} упражнений</div>
 
@@ -294,13 +294,13 @@ function renderExerciseCard(e, i, s) {
   const expectedSets = expectedSetsCount(e);
   const doneCount = setsDoneCount(e);
   const progressBadge = isCardio(e)
-    ? (e.cardio?.duration ? `<span class="pill done">✓</span>` : "")
+    ? (e.cardio?.duration ? `<span class="pill done">${icon("check",12)}</span>` : "")
     : (expectedSets ? `<span class="pill ${doneCount >= expectedSets ? "done" : ""}">${doneCount}/${expectedSets}</span>` : (doneCount ? `<span class="pill done">${doneCount}</span>` : ""));
 
   return `
     <div class="exercise ${e.done ? "done" : ""} ${open ? "open" : ""}" data-idx="${i}">
       <div class="ex-header" onclick="toggleExercise(${i})">
-        <div class="num">${e.done ? "✓" : i+1}</div>
+        <div class="num">${e.done ? icon("check",16) : i+1}</div>
         <div class="ex-title">
           <div class="n">${esc(e.name)}</div>
           <div class="meta">
@@ -311,13 +311,13 @@ function renderExerciseCard(e, i, s) {
             ${progressBadge}
           </div>
         </div>
-        <div style="color:var(--muted)">${open ? "▾" : "▸"}</div>
+        <div style="color:var(--muted)">${open ? icon("chevronDown",18) : icon("chevronRight",18)}</div>
       </div>
       <div class="ex-body">
         <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px">
-          ${e.video ? `<a href="${esc(e.video)}" target="_blank" rel="noopener" class="btn sm ghost">▶ Техника</a>` : ""}
-          <button class="btn sm ghost" onclick="openReplaceModal(${i})">⇄ Заменить</button>
-          <button class="btn sm ghost" onclick="location.hash='exercise/'+encodeURIComponent(${JSON.stringify(e.name)})">📈 История</button>
+          ${e.video ? `<a href="${esc(e.video)}" target="_blank" rel="noopener" class="btn sm ghost">${icon("play",16)} Техника</a>` : ""}
+          <button class="btn sm ghost" onclick="openReplaceModal(${i})">${icon("swap",16)} Заменить</button>
+          <button class="btn sm ghost" onclick="location.hash='exercise/'+encodeURIComponent(${JSON.stringify(e.name)})">${icon("trending",16)} История</button>
         </div>
         ${last ? `<div class="small muted" style="margin-bottom:8px">Прошлая (${fmtDate(last.date)}): ${last.cardio
           ? (last.cardio.duration + " мин" + (last.cardio.type ? " · " + esc(last.cardio.type) : ""))
@@ -329,8 +329,8 @@ function renderExerciseCard(e, i, s) {
 
         <div class="ex-actions">
           ${e.done
-            ? `<button class="btn sm" onclick="toggleExerciseDone(${i})">↺ Отменить готово</button>`
-            : `<button class="btn sm" onclick="toggleExerciseDone(${i})">✓ Готово</button>`}
+            ? `<button class="btn sm" onclick="toggleExerciseDone(${i})">${icon("undo",16)} Отменить готово</button>`
+            : `<button class="btn sm" onclick="toggleExerciseDone(${i})">${icon("check",16)} Готово</button>`}
         </div>
       </div>
     </div>
@@ -352,7 +352,7 @@ function renderSetsBody(e, i) {
     <div class="col-labels"><div>#</div><div>Вес (кг)</div><div>Повторы</div><div></div></div>
     ${rows.join("")}
     ${hasDropset(e) && !e.sets.some(x => x.type === "dropset") ? `
-      <button class="btn sm ghost" style="margin-top:6px; color:var(--warn)" onclick="addDropsetSet(${i})">+ Добавить дропсет</button>
+      <button class="btn sm ghost" style="margin-top:6px; color:var(--warn)" onclick="addDropsetSet(${i})">${icon("plus",14)} Добавить дропсет</button>
     ` : ""}
   `;
 }
@@ -377,7 +377,7 @@ function setRow(exIdx, setIdx, set, ex) {
       <div class="idx ${isWarmup ? "warmup-idx" : ""} ${isDrop ? "drop-idx" : ""}" onclick="toggleSetType(${exIdx},${setIdx})" title="Переключить тип">${label}</div>
       <input type="number" inputmode="decimal" step="0.5" placeholder="${esc(wPh)}" value="${s.weight ?? ""}" onchange="updateSet(${exIdx},${setIdx},'weight',this.value)">
       <input type="number" inputmode="numeric" step="1" placeholder="${esc(rPh)}" value="${s.reps ?? ""}" onchange="updateSet(${exIdx},${setIdx},'reps',this.value)" onblur="maybeAutoLog(${exIdx},${setIdx})" onkeydown="if(event.key==='Enter'){this.blur();}">
-      <div class="del" onclick="${s.done ? `unlogSet(${exIdx},${setIdx})` : `logSet(${exIdx},${setIdx})`}">${s.done ? "↺" : "✓"}</div>
+      <div class="del" onclick="${s.done ? `unlogSet(${exIdx},${setIdx})` : `logSet(${exIdx},${setIdx})`}">${s.done ? icon("undo",16) : icon("check",16)}</div>
       ${isDrop && s.drops ? renderDrops(exIdx, setIdx, s.drops) : ""}
       ${isDrop ? `<button class="btn sm ghost drop-add" onclick="addDrop(${exIdx},${setIdx})">+ drop</button>` : ""}
     </div>
@@ -390,7 +390,7 @@ function renderDrops(ei, si, drops) {
       <div class="idx drop-idx">d${di+1}</div>
       <input type="number" inputmode="decimal" step="0.5" placeholder="0" value="${d.weight ?? ""}" onchange="updateDrop(${ei},${si},${di},'weight',this.value)">
       <input type="number" inputmode="numeric" step="1" placeholder="0" value="${d.reps ?? ""}" onchange="updateDrop(${ei},${si},${di},'reps',this.value)">
-      <div class="del" onclick="removeDrop(${ei},${si},${di})">✕</div>
+      <div class="del" onclick="removeDrop(${ei},${si},${di})">${icon("x",14)}</div>
     </div>
   `).join("");
 }
@@ -554,7 +554,7 @@ function openReplaceModal(exIdx) {
         ${list.map(name => `
           <div class="list-item" onclick="doReplace(${exIdx}, ${JSON.stringify(name).replace(/"/g, '&quot;')})">
             <div><div class="title small">${esc(name)}</div></div>
-            <div class="right">→</div>
+            <div class="right">${icon("chevronRight",18)}</div>
           </div>
         `).join("")}
       </div>
@@ -606,9 +606,9 @@ function finishWorkout() {
 
   if (newPRs.length) {
     fireConfetti();
-    toast(`🎉 Новый рекорд: ${newPRs[0].name}!`);
+    toast(`Новый рекорд: ${newPRs[0].name}!`);
   } else {
-    toast("Тренировка сохранена 💪");
+    toast("Тренировка сохранена");
   }
   location.hash = "home";
 }
@@ -705,7 +705,7 @@ function updateRestBar() {
     stopRest();
     try { navigator.vibrate?.([300,120,300]); } catch {}
     playBeep();
-    toast("⏰ Отдых окончен");
+    toast("Отдых окончен");
   }
 }
 function addRest(s) { if (restEnd) restEnd += s * 1000; updateRestBar(); }
@@ -738,7 +738,7 @@ function renderHistory(app) {
           <div class="title">${esc(s.dayName)}</div>
           <div class="sub">${fmtDateTime(s.startedAt)} · ${countSets(s)} подх. · ${sessionVolume(s)} кг</div>
         </div>
-        <div class="right">→</div>
+        <div class="right">${icon("chevronRight",18)}</div>
       </div>
     `).join("") : `<div class="empty">Нет завершённых тренировок</div>`}
   `;
@@ -750,7 +750,7 @@ function renderSessionDetail(id) {
   if (!s) { app.innerHTML = `<div class="empty">Тренировка не найдена</div>`; return; }
   app.innerHTML = `
     <header class="top">
-      <button class="btn sm ghost" onclick="location.hash='history'">← Назад</button>
+      <button class="btn sm ghost" onclick="location.hash='history'">${icon("arrowLeft",16)} Назад</button>
       <button class="btn sm danger" onclick="deleteSession('${s.id}')">Удалить</button>
     </header>
     <h1>${esc(s.dayName)}</h1>
@@ -783,7 +783,7 @@ function renderSessionDetail(id) {
               `).join("")}
             </div>
           ` : `<div class="small muted" style="margin-top:6px">Нет залогированных подходов</div>`)}
-          ${e.notes ? `<div class="small muted" style="margin-top:8px; font-style:italic">📝 ${esc(e.notes)}</div>` : ""}
+          ${e.notes ? `<div class="small muted" style="margin-top:8px; font-style:italic">${icon("note",13)} ${esc(e.notes)}</div>` : ""}
         </div>
       `).join("")}
     </div>
@@ -825,7 +825,7 @@ function renderPRs(app) {
           <div class="sub">e1RM ≈ ${pr.e1rm.toFixed(1)} кг</div>
         </div>
       </div>
-    `).join("") : `<div class="empty">Сделайте первую тренировку 💪</div>`}
+    `).join("") : `<div class="empty">Сделайте первую тренировку</div>`}
   `;
 }
 
@@ -846,7 +846,7 @@ function renderExerciseHistory(name) {
 
   app.innerHTML = `
     <header class="top">
-      <button class="btn sm ghost" onclick="history.back()">← Назад</button>
+      <button class="btn sm ghost" onclick="history.back()">${icon("arrowLeft",16)} Назад</button>
     </header>
     <h1 style="font-size:20px">${esc(name)}</h1>
     <div class="small muted" style="margin-bottom:14px">${entries.length} тренировок в истории</div>
@@ -901,7 +901,7 @@ function renderBody(app) {
   app.innerHTML = `
     <header class="top">
       <h1>Вес тела</h1>
-      <button class="btn sm primary" onclick="openBodyWeightModal()">+ Записать</button>
+      <button class="btn sm primary" onclick="openBodyWeightModal()">${icon("plus",14)} Записать</button>
     </header>
     ${list.length >= 2 ? renderBodyChart(list.slice().reverse()) : ""}
     ${list.length ? list.map(bw => `
@@ -910,7 +910,7 @@ function renderBody(app) {
           <div class="title">${bw.weight} кг</div>
           <div class="sub">${fmtDate(bw.date)}</div>
         </div>
-        <button class="btn sm ghost" onclick="deleteBW('${bw.date}')" style="color:var(--danger)">✕</button>
+        <button class="btn sm ghost" onclick="deleteBW('${bw.date}')" style="color:var(--danger)">${icon("x",16)}</button>
       </div>
     `).join("") : `<div class="empty">Записей пока нет</div>`}
   `;
@@ -975,7 +975,7 @@ function closeModal() {
 function renderProgram(app) {
   app.innerHTML = `
     <header class="top">
-      <button class="btn sm ghost" onclick="location.hash='home'">← Назад</button>
+      <button class="btn sm ghost" onclick="location.hash='home'">${icon("arrowLeft",16)} Назад</button>
       <h1>Программа</h1>
       <div></div>
     </header>
@@ -1084,6 +1084,12 @@ Object.assign(window, {
   updateNotes, openReplaceModal, filterReplace, doReplace,
   openBodyWeightModal, saveBW, deleteBW, closeModal,
   deleteSession, jumpToDay, exportData, importData, resetAll,
+});
+
+// Hydrate nav icons
+$$("nav.bottom a[data-ico]").forEach(a => {
+  const span = a.querySelector(".ico");
+  if (span) span.innerHTML = icon(a.dataset.ico, 22);
 });
 
 // ====== BOOT ======

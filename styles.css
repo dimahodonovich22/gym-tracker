@@ -120,6 +120,9 @@ nav.bottom a.active { color: var(--accent-2); }
 nav.bottom .ico { font-size: 20px; }
 
 .muted { color: var(--muted); }
+.ic { display: inline-block; vertical-align: -3px; flex-shrink: 0; }
+.btn .ic { vertical-align: -3px; }
+.ex-header .num svg, .exercise.done .ex-header .num svg { stroke-width: 2.5; }
 .small { font-size: 13px; }
 .row { display: flex; gap: 10px; align-items: center; }
 .row.between { justify-content: space-between; }
