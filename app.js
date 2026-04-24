@@ -375,8 +375,8 @@ function setRow(exIdx, setIdx, set, ex) {
   return `
     <div class="set-row ${s.done ? "logged" : ""} ${isWarmup ? "warmup" : ""} ${isDrop ? "dropset-row" : ""}" data-ex="${exIdx}" data-si="${setIdx}">
       <div class="idx ${isWarmup ? "warmup-idx" : ""} ${isDrop ? "drop-idx" : ""}" onclick="toggleSetType(${exIdx},${setIdx})" title="Переключить тип">${label}</div>
-      <input type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="${esc(wPh)}" value="${s.weight ?? ""}" onchange="updateSet(${exIdx},${setIdx},'weight',this.value)">
-      <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="${esc(rPh)}" value="${s.reps ?? ""}" onchange="updateSet(${exIdx},${setIdx},'reps',this.value)" onblur="maybeAutoLog(${exIdx},${setIdx})" onkeydown="if(event.key==='Enter'){this.blur();}">
+      <input type="text" inputmode="decimal" autocomplete="off" placeholder="${esc(wPh)}" value="${s.weight ?? ""}" onchange="updateSet(${exIdx},${setIdx},'weight',this.value)">
+      <input type="text" inputmode="numeric" autocomplete="off" placeholder="${esc(rPh)}" value="${s.reps ?? ""}" onchange="updateSet(${exIdx},${setIdx},'reps',this.value)" onblur="maybeAutoLog(${exIdx},${setIdx})" onkeydown="if(event.key==='Enter'){this.blur();}">
       <div class="del" onclick="${s.done ? `unlogSet(${exIdx},${setIdx})` : `logSet(${exIdx},${setIdx})`}">${s.done ? icon("undo",16) : icon("check",16)}</div>
       ${isDrop && s.drops ? renderDrops(exIdx, setIdx, s.drops) : ""}
       ${isDrop ? `<button class="btn sm ghost drop-add" onclick="addDrop(${exIdx},${setIdx})">+ drop</button>` : ""}
@@ -388,8 +388,8 @@ function renderDrops(ei, si, drops) {
   return drops.map((d, di) => `
     <div class="drop-row">
       <div class="idx drop-idx">d${di+1}</div>
-      <input type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0" value="${d.weight ?? ""}" onchange="updateDrop(${ei},${si},${di},'weight',this.value)">
-      <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="${d.reps ?? ""}" onchange="updateDrop(${ei},${si},${di},'reps',this.value)">
+      <input type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="${d.weight ?? ""}" onchange="updateDrop(${ei},${si},${di},'weight',this.value)">
+      <input type="text" inputmode="numeric" autocomplete="off" placeholder="0" value="${d.reps ?? ""}" onchange="updateDrop(${ei},${si},${di},'reps',this.value)">
       <div class="del" onclick="removeDrop(${ei},${si},${di})">${icon("x",14)}</div>
     </div>
   `).join("");
@@ -946,7 +946,7 @@ function openBodyWeightModal() {
       <div class="handle"></div>
       <h2>Записать вес тела</h2>
       <div class="stack" style="margin-top:16px">
-        <input type="text" id="bwInput" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="75,5 кг" autofocus>
+        <input type="text" id="bwInput" inputmode="decimal" autocomplete="off" placeholder="75,5 кг" autofocus>
         <button class="btn primary block" onclick="saveBW()">Сохранить</button>
         <button class="btn ghost block" onclick="closeModal()">Отмена</button>
       </div>
