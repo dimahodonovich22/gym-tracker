@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b0d10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GymTracker">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<title>GymTracker</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<main id="app"></main>
+
+<div id="restBar" class="rest-timer hidden">
+  <div>
+    <div class="label" id="restLabel">Отдых</div>
+    <div class="time" id="restTime">0:00</div>
+  </div>
+  <div style="display:flex; gap:6px">
+    <button onclick="addRest(15)">+15с</button>
+    <button onclick="skipRest()">Пропустить</button>
+  </div>
+</div>
+
+<nav class="bottom">
+  <a href="#home" data-route="home"><span class="ico">🏠</span>Главная</a>
+  <a href="#history" data-route="history"><span class="ico">📋</span>История</a>
+  <a href="#prs" data-route="prs"><span class="ico">🏆</span>Рекорды</a>
+  <a href="#body" data-route="body"><span class="ico">⚖️</span>Вес</a>
+</nav>
+
+<div id="modalBg" class="modal-bg"></div>
+<div id="toast" class="toast"></div>
+
+<script src="./program.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
