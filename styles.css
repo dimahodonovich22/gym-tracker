@@ -174,6 +174,21 @@ nav.bottom .ico { font-size: 20px; }
 .set-row input { padding: 10px; font-size: 16px; text-align: center; }
 .set-row .del { font-size: 18px; color: var(--muted); cursor: pointer; }
 .set-row.logged input { background: rgba(62,207,142,0.08); border-color: rgba(62,207,142,0.3); }
+.set-row .idx { cursor: pointer; border-radius: 6px; transition: background 0.15s; }
+.set-row .idx:active { background: var(--bg-3); }
+.set-row .warmup-idx {
+  background: rgba(245,165,36,0.18);
+  color: var(--warn);
+  font-weight: 700;
+}
+.set-row.warmup input {
+  background: rgba(245,165,36,0.06);
+  border-color: rgba(245,165,36,0.25);
+}
+.set-row.warmup.logged input {
+  background: rgba(245,165,36,0.12);
+  border-color: rgba(245,165,36,0.4);
+}
 .col-labels {
   display: grid; grid-template-columns: 32px 1fr 1fr 40px;
   gap: 8px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;
@@ -251,3 +266,70 @@ nav.bottom .ico { font-size: 20px; }
   margin-top: 10px;
 }
 .progress > div { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width 0.3s; }
+
+/* Weekly dashboard */
+.week-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin: 4px 0 4px;
+}
+.stat {
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 8px; text-align: center;
+}
+.stat-v { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+.stat-l { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Pill variants */
+.pill.done { color: var(--ok); border-color: rgba(62,207,142,0.4); background: rgba(62,207,142,0.08); }
+
+/* Dropset row */
+.set-row.dropset-row { border-left: 3px solid var(--warn); padding-left: 4px; background: rgba(245,165,36,0.04); border-radius: 6px; }
+.set-row .drop-idx { background: rgba(239,68,68,0.15); color: var(--danger); font-size: 11px; }
+.drop-row {
+  display: grid; grid-template-columns: 32px 1fr 1fr 40px;
+  gap: 8px; align-items: center; padding: 4px 0 4px 32px;
+  grid-column: 1/-1;
+}
+.drop-row input { padding: 8px; font-size: 14px; text-align: center; background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.25); }
+.drop-row .del { font-size: 16px; color: var(--muted); cursor: pointer; }
+.set-row.dropset-row { grid-template-columns: 32px 1fr 1fr 40px; position: relative; }
+.drop-add {
+  grid-column: 2/-1;
+  justify-self: start;
+  color: var(--warn) !important;
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  margin-top: 2px;
+}
+
+/* Notes */
+textarea.notes {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-height: 60px;
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  margin-top: 10px;
+}
+textarea.notes:focus { outline: none; border-color: var(--accent); }
+
+/* Cardio box */
+.cardio-box { display: flex; flex-direction: column; gap: 4px; }
+.cardio-box label { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.cardio-box input, .cardio-box select {
+  background: var(--bg-3); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; font-weight: 600; color: inherit;
+  appearance: none; -webkit-appearance: none;
+}
+.cardio-box select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
+
+/* Confetti */
+#confetti {
+  position: fixed; inset: 0; pointer-events: none; z-index: 300;
+  display: none;
+}
