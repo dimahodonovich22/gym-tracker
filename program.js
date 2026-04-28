@@ -43,6 +43,66 @@ const VIDEOS = {
   "Подъемы на носки в тренажере сидя": "https://www.youtube.com/shorts/2DAHyNcTtGA"
 };
 
+// Muscle classification: { primary: specific muscle, group: broad muscle group }
+// Used by "Заменить упражнение" to order candidates by relevance.
+const MUSCLES = {
+  // Спина — широчайшие
+  "Вертикальная тяга блока широким хватом": { primary: "lats", group: "back" },
+  "Вертикальная тяга блока узким хватом": { primary: "lats", group: "back" },
+  "Вертикальная тяга блока параллельным хватом": { primary: "lats", group: "back" },
+  "Подтягивания параллельным хватом": { primary: "lats", group: "back" },
+  "Пулловер в блоке с упором спиной": { primary: "lats", group: "back" },
+  // Спина — толщина
+  "Горизонтальная тяга блока с акцентом на толщину": { primary: "mid-back", group: "back" },
+  "Тяга Т-грифа": { primary: "mid-back", group: "back" },
+  "Тяга нижнего блока стоя": { primary: "mid-back", group: "back" },
+  // Спина — низ
+  "Мертвая тяга": { primary: "lower-back", group: "back" },
+
+  // Грудь
+  "Жим в Смите в наклоне": { primary: "chest-upper", group: "chest" },
+  "Жим гантелей в наклоне": { primary: "chest-upper", group: "chest" },
+  "Сведение в Peck-Deck на верх груди": { primary: "chest-upper", group: "chest" },
+  "Жим гантелей лежа": { primary: "chest-mid", group: "chest" },
+  "Сведение в кроссовере лежа на наклонной скамье": { primary: "chest-mid", group: "chest" },
+  "Жим в Хаммере на низ груди": { primary: "chest-lower", group: "chest" },
+
+  // Ноги
+  "Жим ногами": { primary: "quads", group: "legs" },
+  "Приседания в Смите": { primary: "quads", group: "legs" },
+  "Разгибания ног в тренажере": { primary: "quads", group: "legs" },
+  "Сгибания ног лежа в тренажере на бицепс бедра": { primary: "hamstrings", group: "legs" },
+  "Подъемы на носки в тренажере стоя/в Смите": { primary: "calves", group: "legs" },
+  "Подъемы на носки в тренажере сидя": { primary: "calves", group: "legs" },
+
+  // Плечи
+  "Отведение гантелей в стороны стоя": { primary: "side-delts", group: "shoulders" },
+  "Отведение гантелей с упором в скамью": { primary: "side-delts", group: "shoulders" },
+  "Отведение в кроссовере по 1-й руке": { primary: "side-delts", group: "shoulders" },
+  "Разведение гантелей с упором в скамью (задняя дельта)": { primary: "rear-delts", group: "shoulders" },
+  "Протяжка с нижнего блока": { primary: "rear-delts", group: "shoulders" },
+  "Жим гантелей сидя": { primary: "front-delts", group: "shoulders" },
+
+  // Бицепс
+  "Подъем штанги на бицепс": { primary: "biceps", group: "biceps" },
+  "Подъем гантелей на бицепс сидя": { primary: "biceps", group: "biceps" },
+  "Подъем гантелей на бицепс сидя на наклонной скамье": { primary: "biceps", group: "biceps" },
+  "Подъем штанги/гантелей с упором в скамью": { primary: "biceps", group: "biceps" },
+  "Сгибания рук с нижнего блока": { primary: "biceps", group: "biceps" },
+  "Молитва в блоке": { primary: "biceps", group: "biceps" },
+  "Молотки с гантелями": { primary: "brachialis", group: "biceps" },
+
+  // Трицепс
+  "Разгибания из-за головы в блоке": { primary: "triceps-overhead", group: "triceps" },
+  "Разгибания из-за головы в блоке по 1-й руке": { primary: "triceps-overhead", group: "triceps" },
+  "Французский жим на наклонной скамье": { primary: "triceps-overhead", group: "triceps" },
+  "Разгибания в блоке с прямой рукоятью": { primary: "triceps-pushdown", group: "triceps" },
+  "Разгибания в блоке лежа на скамье": { primary: "triceps-pushdown", group: "triceps" },
+
+  // Кардио
+  "КАРДИО": { primary: "cardio", group: "cardio" },
+};
+
 function ex(name, warmup, scheme, rest, rir) {
   return { name, warmup, scheme, rest, rir, video: VIDEOS[name] || null };
 }
@@ -246,4 +306,5 @@ function restToSeconds(rest) {
 }
 
 window.PROGRAM = PROGRAM;
+window.MUSCLES = MUSCLES;
 window.restToSeconds = restToSeconds;

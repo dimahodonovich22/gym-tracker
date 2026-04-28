@@ -547,7 +547,42 @@ function toggleExerciseDone(i) {
 function openReplaceModal(exIdx) {
   const s = currentSession();
   const cur = s.exercises[exIdx];
-  const list = Object.keys(VIDEOS).sort((a,b)=>a.localeCompare(b,"ru"));
+  const curInfo = MUSCLES[cur.name] || { primary: null, group: null };
+
+  const tier = (name) => {
+    const info = MUSCLES[name];
+    if (!info) return 3;
+    if (curInfo.primary && info.primary === curInfo.primary) return 0;
+    if (curInfo.group && info.group === curInfo.group) return 1;
+    return 2;
+  };
+
+  const candidates = Object.keys(VIDEOS)
+    .filter(n => n !== cur.name)
+    .sort((a, b) => {
+      const ta = tier(a), tb = tier(b);
+      if (ta !== tb) return ta - tb;
+      return a.localeCompare(b, "ru");
+    });
+
+  const TIER_LABELS = ["— Та же мышца —", "— Та же группа —", "— Остальные —", "— Остальные —"];
+  let html = "";
+  let lastTier = -1;
+  for (const name of candidates) {
+    const t = tier(name);
+    const headerTier = t === 3 ? 2 : t;
+    if (headerTier !== lastTier) {
+      html += `<div class="list-header small muted" data-tier="${headerTier}" style="padding:8px 4px 4px; font-weight:600">${TIER_LABELS[headerTier]}</div>`;
+      lastTier = headerTier;
+    }
+    html += `
+      <div class="list-item" onclick="doReplace(${exIdx}, ${JSON.stringify(name).replace(/"/g, '&quot;')})">
+        <div><div class="title small">${esc(name)}</div></div>
+        <div class="right">${icon("chevronRight",18)}</div>
+      </div>
+    `;
+  }
+
   const bg = $("#modalBg");
   bg.innerHTML = `
     <div class="modal">
@@ -556,12 +591,7 @@ function openReplaceModal(exIdx) {
       <div class="small muted" style="margin-bottom:10px">Текущее: ${esc(cur.name)}</div>
       <input type="text" id="replaceSearch" placeholder="Поиск…" oninput="filterReplace()">
       <div id="replaceList" style="margin-top:10px; max-height:55vh; overflow-y:auto">
-        ${list.map(name => `
-          <div class="list-item" onclick="doReplace(${exIdx}, ${JSON.stringify(name).replace(/"/g, '&quot;')})">
-            <div><div class="title small">${esc(name)}</div></div>
-            <div class="right">${icon("chevronRight",18)}</div>
-          </div>
-        `).join("")}
+        ${html}
       </div>
       <button class="btn ghost block" style="margin-top:12px" onclick="closeModal()">Отмена</button>
     </div>
@@ -572,9 +602,28 @@ function openReplaceModal(exIdx) {
 }
 function filterReplace() {
   const q = $("#replaceSearch").value.trim().toLowerCase();
-  const items = $$("#replaceList .list-item");
-  items.forEach(el => {
-    el.style.display = el.textContent.toLowerCase().includes(q) ? "" : "none";
+  const list = $("#replaceList");
+  if (!list) return;
+  const children = Array.from(list.children);
+  // First pass: show/hide list items based on search
+  children.forEach(el => {
+    if (el.classList.contains("list-item")) {
+      el.style.display = el.textContent.toLowerCase().includes(q) ? "" : "none";
+    }
+  });
+  // Second pass: hide headers whose section has no visible items
+  children.forEach((el, i) => {
+    if (!el.classList.contains("list-header")) return;
+    let hasVisible = false;
+    for (let j = i + 1; j < children.length; j++) {
+      const next = children[j];
+      if (next.classList.contains("list-header")) break;
+      if (next.classList.contains("list-item") && next.style.display !== "none") {
+        hasVisible = true;
+        break;
+      }
+    }
+    el.style.display = hasVisible ? "" : "none";
   });
 }
 function doReplace(exIdx, newName) {
