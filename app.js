@@ -734,6 +734,19 @@ function stopSilentLoop() {
   if (silentAudio) { try { silentAudio.pause(); } catch {} }
 }
 
+function restToSeconds(rest) {
+  if (!rest) return 0;
+  const s = String(rest).toLowerCase().trim();
+  if (s === "—" || s === "-" || s === "") return 0;
+  const minSec = s.match(/^(\d+)[,.](\d+)\s*мин/);
+  if (minSec) return parseInt(minSec[1], 10) * 60 + parseInt(minSec[2], 10);
+  const min = s.match(/(\d+)(?:\s*[-–]\s*\d+)?\s*мин/);
+  if (min) return parseInt(min[1], 10) * 60;
+  const sec = s.match(/(\d+)\s*сек/);
+  if (sec) return parseInt(sec[1], 10);
+  return 0;
+}
+
 function startRest(seconds, label) {
   ensureAudio();
   restEnd = Date.now() + seconds * 1000;
@@ -1154,14 +1167,16 @@ route();
 if (state.activeSessionId) requestWakeLock();
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js").then(reg => {
-    reg.addEventListener("updatefound", () => {
-      const w = reg.installing;
-      w?.addEventListener("statechange", () => {
-        if (w.state === "installed" && navigator.serviceWorker.controller) {
-          toast("Обновление доступно. Перезагрузите приложение.");
-        }
-      });
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+  // Auto-reload once when a new SW takes control (skipWaiting + clients.claim
+  // hand over immediately). Skip the very first registration where there was
+  // no prior controller, so a first-time visit doesn't reload itself.
+  if (navigator.serviceWorker.controller) {
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
     });
-  }).catch(() => {});
+  }
 }
