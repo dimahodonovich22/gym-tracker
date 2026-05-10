@@ -33,6 +33,73 @@ function toast(msg) {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => el.classList.remove("show"), 1800);
 }
+// ====== WELCOME POPUP (on app open) ======
+const WELCOME_GREETINGS = [
+  "С возвращением!",
+  "Здарова, чемпион!",
+  "Готов жать?",
+  "Время качаться!",
+  "На железо?",
+];
+const WELCOME_QUESTIONS = [
+  "Готов сегодня поработать?",
+  "Сегодня прогресс или прогресс?",
+  "Покачаемся?",
+  "Идём за рекордом?",
+  "Тренировка ждёт",
+];
+const WELCOME_SUBTITLES = [
+  "Каждая тренировка — кирпичик в фундамент",
+  "Сегодня ты сильнее, чем вчера",
+  "Дисциплина бьёт мотивацию",
+  "Прогресс любит постоянство",
+  "Ещё одна тренировка — ещё один шаг",
+  "Слабый план лучше идеальной отговорки",
+  "Тяжёлое сегодня — лёгкое завтра",
+  "Железо не врёт",
+  "Один подход в копилку",
+  "Ты пришёл — половина дела сделана",
+];
+const WELCOME_BUTTONS = [
+  "Поехали",
+  "Погнали",
+  "К железу",
+  "Жмём",
+  "Качаемся",
+  "Вперёд",
+];
+function showWelcome() {
+  const greet = WELCOME_GREETINGS[Math.floor(Math.random() * WELCOME_GREETINGS.length)];
+  const question = WELCOME_QUESTIONS[Math.floor(Math.random() * WELCOME_QUESTIONS.length)];
+  const subtitle = WELCOME_SUBTITLES[Math.floor(Math.random() * WELCOME_SUBTITLES.length)];
+  const btn = WELCOME_BUTTONS[Math.floor(Math.random() * WELCOME_BUTTONS.length)];
+  const el = document.createElement("div");
+  el.className = "welcome-pop";
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 320);
+  };
+  el.innerHTML = `
+    <div class="welcome-card" role="dialog" aria-label="Приветствие">
+      <span class="welcome-spark s1">${icon("dumbbell", 22)}</span>
+      <span class="welcome-spark s2">${icon("dumbbell", 16)}</span>
+      <span class="welcome-spark s3">${icon("trophy", 18)}</span>
+      <span class="welcome-spark s4">${icon("dumbbell", 14)}</span>
+      <div class="welcome-icon">${icon("dumbbell", 36)}</div>
+      <div class="welcome-title">${esc(greet)}</div>
+      <div class="welcome-question">${esc(question)}</div>
+      <div class="welcome-subtitle">${esc(subtitle)}</div>
+      <button type="button" class="welcome-btn">${esc(btn)}</button>
+    </div>
+  `;
+  el.addEventListener("click", e => { if (e.target === el) dismiss(); });
+  el.querySelector(".welcome-btn").addEventListener("click", dismiss);
+  document.body.appendChild(el);
+}
+
 function mondayOf(d) {
   const x = new Date(d);
   const day = x.getDay() || 7;
@@ -1163,6 +1230,8 @@ $$("nav.bottom a[data-ico]").forEach(a => {
 
 // ====== BOOT ======
 route();
+// Greet on every open — small delay so route renders first.
+setTimeout(showWelcome, 220);
 // If there's an active session, keep screen awake
 if (state.activeSessionId) requestWakeLock();
 

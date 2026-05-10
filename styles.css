@@ -336,3 +336,155 @@ textarea.notes:focus { outline: none; border-color: var(--accent); }
   position: fixed; inset: 0; pointer-events: none; z-index: 300;
   display: none;
 }
+
+/* Welcome popup — shown when app opens */
+.welcome-pop {
+  position: fixed;
+  inset: 0;
+  z-index: 6000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  background: rgba(7, 9, 12, 0.62);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  animation: welcomeBgIn 0.4s ease-out;
+}
+.welcome-pop.out { animation: welcomeBgOut 0.3s ease-in forwards; }
+.welcome-card {
+  position: relative;
+  max-width: 340px;
+  width: 100%;
+  padding: 38px 28px 28px;
+  text-align: center;
+  border-radius: 28px;
+  background:
+    radial-gradient(120% 90% at 30% 0%, #ff8a5c 0%, transparent 60%),
+    linear-gradient(135deg, #ff6a3d 0%, #f5a524 100%);
+  box-shadow:
+    0 30px 80px rgba(255, 106, 61, 0.45),
+    0 12px 30px rgba(0, 0, 0, 0.45),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.45);
+  animation: welcomeCardIn 0.6s cubic-bezier(.34, 1.56, .64, 1);
+  overflow: hidden;
+  isolation: isolate;
+}
+.welcome-pop.out .welcome-card { animation: welcomeCardOut 0.3s ease-in forwards; }
+.welcome-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(140% 70% at 0% 0%, rgba(255, 255, 255, 0.4) 0%, transparent 55%),
+    radial-gradient(80% 60% at 100% 100%, rgba(0, 0, 0, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.welcome-spark {
+  position: absolute;
+  color: #fff;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+  z-index: 1;
+}
+.welcome-spark.s1 { top: 18px; left: 22px; opacity: 0.55; animation: floatS 3.4s ease-in-out infinite; }
+.welcome-spark.s2 { top: 70px; right: 28px; opacity: 0.4; animation: floatS 4.2s ease-in-out infinite -1s; }
+.welcome-spark.s3 { bottom: 100px; left: 18px; opacity: 0.5; animation: floatS 3.8s ease-in-out infinite -0.6s; }
+.welcome-spark.s4 { bottom: 38px; right: 24px; opacity: 0.4; animation: floatS 4.6s ease-in-out infinite -2s; }
+.welcome-icon {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  color: #0b0d10;
+  margin-bottom: 18px;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.55),
+    0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.welcome-title {
+  position: relative;
+  z-index: 2;
+  font-size: 28px;
+  font-weight: 800;
+  color: #0b0d10;
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.18);
+  opacity: 0;
+  animation: welcomeFadeUp 0.5s ease-out 0.18s forwards;
+}
+.welcome-question {
+  position: relative;
+  z-index: 2;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0b0d10;
+  margin-bottom: 14px;
+  opacity: 0;
+  animation: welcomeFadeUp 0.5s ease-out 0.30s forwards;
+}
+.welcome-subtitle {
+  position: relative;
+  z-index: 2;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(11, 13, 16, 0.72);
+  font-style: italic;
+  margin-bottom: 26px;
+  line-height: 1.45;
+  opacity: 0;
+  animation: welcomeFadeUp 0.5s ease-out 0.42s forwards;
+}
+.welcome-btn {
+  position: relative;
+  z-index: 2;
+  background: #0b0d10;
+  color: #ff8a5c;
+  font: 800 16px/1 inherit;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 0;
+  border-radius: 16px;
+  padding: 14px 32px;
+  cursor: pointer;
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.4),
+    inset 0 -2px 0 rgba(255, 138, 92, 0.15);
+  transition: transform 0.14s, box-shadow 0.14s;
+  opacity: 0;
+  animation: welcomeBtnIn 0.55s cubic-bezier(.34, 1.56, .64, 1) 0.55s forwards;
+}
+.welcome-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5); }
+.welcome-btn:active { transform: translateY(1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35); }
+
+@keyframes welcomeBgIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes welcomeBgOut { to { opacity: 0; } }
+@keyframes welcomeCardIn {
+  from { opacity: 0; transform: translateY(50px) scale(0.65); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes welcomeCardOut {
+  to { opacity: 0; transform: translateY(20px) scale(0.92); }
+}
+@keyframes welcomeFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes welcomeBtnIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.85); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes floatS {
+  0%, 100% { transform: translateY(0) rotate(-10deg); }
+  50% { transform: translateY(-10px) rotate(12deg); }
+}
