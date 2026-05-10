@@ -340,11 +340,12 @@ function renderExerciseCard(e, i, s) {
 function renderSetsBody(e, i) {
   const pyr = pyramidReps(e);
   const hintBase = pyr ? null : repsHintForSet(e, 0);
-  const expected = expectedSetsCount(e) || 1;
+  const expectedWorking = expectedSetsCount(e) || 1;
+  const expectedRows = expectedWorking + (e.warmup ? 1 : 0);
   // Ensure at least expected rows exist visually (display placeholders)
   const rows = [];
   const actualSets = e.sets.slice();
-  const showCount = Math.max(actualSets.length, expected, actualSets.length && actualSets[actualSets.length-1].done ? actualSets.length + 1 : 1);
+  const showCount = Math.max(actualSets.length, expectedRows, actualSets.length && actualSets[actualSets.length-1].done ? actualSets.length + 1 : 1);
   for (let si = 0; si < showCount; si++) {
     rows.push(setRow(i, si, actualSets[si] || null, e));
   }
