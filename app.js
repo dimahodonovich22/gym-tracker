@@ -419,7 +419,7 @@ function renderExerciseCard(e, i, s) {
         <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px">
           ${e.video ? `<a href="${esc(e.video)}" target="_blank" rel="noopener" class="btn sm ghost">${icon("play",16)} Техника</a>` : ""}
           <button class="btn sm ghost" onclick="openReplaceModal(${i})">${icon("swap",16)} Заменить</button>
-          <button class="btn sm ghost" onclick="location.hash='exercise/'+encodeURIComponent(${JSON.stringify(e.name)})">${icon("trending",16)} История</button>
+          <button class="btn sm ghost" onclick="openExerciseHistory(${i})">${icon("trending",16)} История</button>
         </div>
         ${last ? `<div class="small muted" style="margin-bottom:8px">Прошлая (${fmtDate(last.date)}): ${last.cardio
           ? (last.cardio.duration + " мин" + (last.cardio.type ? " · " + esc(last.cardio.type) : ""))
@@ -739,6 +739,14 @@ function doReplace(exIdx, newName) {
   closeModal();
   renderWorkout($("#app"));
   toast("Заменено");
+}
+
+// Open per-exercise history from the workout screen (by index to avoid
+// quoting issues with exercise names inside inline onclick handlers).
+function openExerciseHistory(i) {
+  const s = currentSession();
+  if (!s || !s.exercises[i]) return;
+  location.hash = "exercise/" + encodeURIComponent(s.exercises[i].name);
 }
 
 // ====== FINISH ======
