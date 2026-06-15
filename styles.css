@@ -101,6 +101,9 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .btn.block { width: 100%; padding: 16px; font-size: 17px; border-radius: 16px; }
 .btn.sm { padding: 8px 12px; font-size: 14px; border-radius: 10px; }
 
+.prog-switch { display: flex; gap: 8px; flex-wrap: wrap; }
+.prog-switch .btn { flex: 1; min-width: 0; white-space: nowrap; }
+
 .card {
   background: var(--bg-2);
   border: 1px solid var(--line-soft);

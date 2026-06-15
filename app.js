@@ -1,7 +1,9 @@
 // ====== STATE ======
 const STORAGE_KEY = "gymtracker.v1";
 const DEFAULT_STATE = {
-  nextDayIndex: 0,
+  nextDayIndex: 0,            // legacy (kept for old backups); per-program index lives in nextDayByProgram
+  activeProgramId: "fullbody-cut",
+  nextDayByProgram: {},       // { [programId]: nextDayIndex }
   sessions: [],
   activeSessionId: null,
   bodyWeights: [],
@@ -13,10 +15,39 @@ function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return structuredClone(DEFAULT_STATE);
-    return { ...structuredClone(DEFAULT_STATE), ...JSON.parse(raw) };
+    return migrate({ ...structuredClone(DEFAULT_STATE), ...JSON.parse(raw) });
   } catch { return structuredClone(DEFAULT_STATE); }
 }
+// Soft-migrate older saved states to the multi-program shape.
+function migrate(s) {
+  if (!s.activeProgramId) s.activeProgramId = "fullbody-cut";
+  if (!s.nextDayByProgram || typeof s.nextDayByProgram !== "object") s.nextDayByProgram = {};
+  // Carry the old single nextDayIndex into program #1's position.
+  if (s.nextDayByProgram["fullbody-cut"] == null) {
+    s.nextDayByProgram["fullbody-cut"] = s.nextDayIndex || 0;
+  }
+  return s;
+}
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+// ====== ACTIVE PROGRAM HELPERS ======
+function activeProgram() {
+  return PROGRAMS.find(p => p.id === state.activeProgramId) || PROGRAMS[0];
+}
+function activeDays() { return activeProgram().days; }
+function getNextDayIndex() {
+  const idx = state.nextDayByProgram[activeProgram().id];
+  return Number.isInteger(idx) ? idx : 0;
+}
+function setNextDayIndex(i) {
+  state.nextDayByProgram[activeProgram().id] = i;
+}
+function switchProgram(id) {
+  if (!PROGRAMS.some(p => p.id === id)) return;
+  state.activeProgramId = id;
+  save();
+  route();
+}
 
 // ====== UTIL ======
 const $ = (s, r=document) => r.querySelector(s);
@@ -190,7 +221,7 @@ window.addEventListener("hashchange", route);
 
 // ====== HOME ======
 function renderHome(app) {
-  const day = PROGRAM[state.nextDayIndex];
+  const day = activeDays()[getNextDayIndex()];
   const active = state.sessions.find(s => s.id === state.activeSessionId && !s.completed);
   const recent = state.sessions.filter(s => s.completed).sort((a,b)=>b.startedAt.localeCompare(a.startedAt)).slice(0, 3);
   const lastBW = state.bodyWeights.length ? state.bodyWeights[state.bodyWeights.length - 1] : null;
@@ -224,7 +255,7 @@ function renderHome(app) {
       <div class="card accent">
         <div class="pill">Следующая тренировка</div>
         <h2 style="margin-top:6px">${esc(day.name)}</h2>
-        <div class="small muted">${esc(day.block)} · ${day.exercises.length} упражнений</div>
+        <div class="small muted">${esc(activeProgram().name)} · ${esc(day.block)} · ${day.exercises.length} упражнений</div>
         <button class="btn primary block" style="margin-top:14px" onclick="startWorkout()">Начать тренировку</button>
       </div>
     `}
@@ -286,10 +317,14 @@ function sessionVolume(session) {
 
 // ====== START / CANCEL WORKOUT ======
 function startWorkout() {
-  const day = PROGRAM[state.nextDayIndex];
+  const prog = activeProgram();
+  const idx = getNextDayIndex();
+  const day = prog.days[idx];
   const session = {
     id: uid(),
-    dayIndex: state.nextDayIndex,
+    programId: prog.id,
+    programName: prog.name,
+    dayIndex: idx,
     dayName: day.name,
     block: day.block,
     startedAt: new Date().toISOString(),
@@ -720,7 +755,9 @@ function finishWorkout() {
   s.completedAt = new Date().toISOString();
   s.exercises.forEach(e => delete e._open);
   state.activeSessionId = null;
-  state.nextDayIndex = (s.dayIndex + 1) % PROGRAM.length;
+  // Advance the next-day pointer for the program this session belonged to.
+  const prog = PROGRAMS.find(p => p.id === s.programId) || activeProgram();
+  state.nextDayByProgram[prog.id] = (s.dayIndex + 1) % prog.days.length;
   save();
   stopRest();
   releaseWakeLock();
@@ -1109,18 +1146,26 @@ function closeModal() {
 
 // ====== PROGRAM ======
 function renderProgram(app) {
+  const days = activeDays();
+  const nextIdx = getNextDayIndex();
   app.innerHTML = `
     <header class="top">
       <button class="btn sm ghost" onclick="location.hash='home'">${icon("arrowLeft",16)} Назад</button>
       <h1>Программа</h1>
       <div></div>
     </header>
-    <div class="small muted" style="margin-bottom:16px">14 тренировок по кругу. Следующая: <b>День ${state.nextDayIndex + 1}</b></div>
-    ${PROGRAM.map((d, i) => `
-      <div class="card" style="${i === state.nextDayIndex ? 'border-color:var(--accent)' : ''}">
+    <div class="prog-switch">
+      ${PROGRAMS.map(p => `
+        <button class="btn sm ${p.id === state.activeProgramId ? 'primary' : 'ghost'}"
+                onclick="switchProgram('${p.id}')">${esc(p.name)}</button>
+      `).join("")}
+    </div>
+    <div class="small muted" style="margin:12px 0 16px">${days.length} тренировок по кругу. Следующая: <b>${esc(days[nextIdx].name)}</b></div>
+    ${days.map((d, i) => `
+      <div class="card" style="${i === nextIdx ? 'border-color:var(--accent)' : ''}">
         <div class="row between">
           <div style="font-weight:700">${esc(d.name)}</div>
-          ${i === state.nextDayIndex ? '<span class="pill" style="color:var(--accent-2); border-color:var(--accent)">Следующая</span>' : ''}
+          ${i === nextIdx ? '<span class="pill" style="color:var(--accent-2); border-color:var(--accent)">Следующая</span>' : ''}
         </div>
         <div class="small muted" style="margin-bottom:8px">${esc(d.block)}</div>
         ${d.exercises.map((e, k) => `
@@ -1139,8 +1184,9 @@ function renderProgram(app) {
   `;
 }
 function jumpToDay(i) {
-  if (!confirm(`Установить "День ${i+1}" как следующую?`)) return;
-  state.nextDayIndex = i;
+  const day = activeDays()[i];
+  if (!confirm(`Установить "${day.name}" как следующую?`)) return;
+  setNextDayIndex(i);
   save(); toast("Установлено"); route();
 }
 function exportData() {
@@ -1160,7 +1206,7 @@ function importData() {
       try {
         const d = JSON.parse(r.result);
         if (!confirm("Заменить текущие данные импортированными?")) return;
-        state = { ...DEFAULT_STATE, ...d };
+        state = migrate({ ...structuredClone(DEFAULT_STATE), ...d });
         save(); route(); toast("Импортировано");
       } catch { toast("Не удалось прочитать файл"); }
     };
