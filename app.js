@@ -7,7 +7,7 @@ const DEFAULT_STATE = {
   sessions: [],
   activeSessionId: null,
   bodyWeights: [],
-  settings: { unit: "kg" },
+  settings: { unit: "kg", nativeTimer: false, shortcutName: "Таймер отдыха" },
 };
 let state = load();
 
@@ -26,6 +26,8 @@ function migrate(s) {
   if (s.nextDayByProgram["fullbody-cut"] == null) {
     s.nextDayByProgram["fullbody-cut"] = s.nextDayIndex || 0;
   }
+  // Ensure newer settings keys exist on older saved states.
+  s.settings = { unit: "kg", nativeTimer: false, shortcutName: "Таймер отдыха", ...(s.settings || {}) };
   return s;
 }
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -567,8 +569,22 @@ function logSet(ei, si) {
   ex._open = true;
   save();
   const secs = restToSeconds(ex.rest);
-  if (secs > 0) startRest(secs, ex.name);
+  if (secs > 0) {
+    startRest(secs, ex.name);                 // in-app bar (visible while screen is on)
+    if (state.settings.nativeTimer) launchNativeTimer(secs);
+  }
   renderWorkout($("#app"));
+}
+
+// Launch the phone's native timer via the iOS Shortcuts app, so the countdown
+// is visible on the lock screen and rings even when the screen is off.
+// Requires a one-time Shortcut (see setup in the Program tab) that starts a
+// timer for the number of seconds passed as input.
+function launchNativeTimer(seconds) {
+  const name = (state.settings.shortcutName || "Таймер отдыха").trim();
+  if (!name) return;
+  const url = `shortcuts://run-shortcut?name=${encodeURIComponent(name)}&input=text&text=${seconds}`;
+  try { window.location.href = url; } catch {}
 }
 function unlogSet(ei, si) {
   const s = currentSession();
@@ -1185,11 +1201,47 @@ function renderProgram(app) {
         <button class="btn sm ghost" style="margin-top:10px" onclick="jumpToDay(${i})">Установить как следующую</button>
       </div>
     `).join("")}
+    <h3>Таймер отдыха на телефоне</h3>
+    <div class="card">
+      <label class="row between" style="cursor:pointer; align-items:center">
+        <div>
+          <div style="font-weight:600">Родной таймер iOS</div>
+          <div class="small muted">После подхода авто-запуск таймера в часах iPhone — виден на заблокированном экране и звонит.</div>
+        </div>
+        <input type="checkbox" class="switch" ${state.settings.nativeTimer ? "checked" : ""} onchange="toggleNativeTimer(this.checked)">
+      </label>
+      <div style="margin-top:12px">
+        <div class="small muted" style="margin-bottom:4px">Название команды в «Командах»</div>
+        <input type="text" value="${esc(state.settings.shortcutName || "")}" onchange="setShortcutName(this.value)" style="width:100%">
+      </div>
+      <button class="btn sm ghost" style="margin-top:10px" onclick="launchNativeTimer(5)">Тест: таймер на 5 сек</button>
+      <details style="margin-top:12px">
+        <summary class="small" style="cursor:pointer; color:var(--accent-2)">Как настроить (один раз)</summary>
+        <ol class="small muted" style="margin:8px 0 0; padding-left:18px; line-height:1.6">
+          <li>Открой приложение <b>Команды</b> → «+» (новая команда).</li>
+          <li>Переименуй её точно в «<b>${esc(state.settings.shortcutName || "Таймер отдыха")}</b>» (как в поле выше).</li>
+          <li>Добавь действие <b>«Запустить таймер»</b>.</li>
+          <li>В длительности подставь переменную <b>«Вход команды»</b>, единицы — <b>секунды</b>.</li>
+          <li>(Необязательно) в начало добавь «Получить текст из Входа команды», чтобы число точно пришло.</li>
+          <li>Сохрани. Включи тумблер выше и проверь кнопкой «Тест».</li>
+        </ol>
+      </details>
+    </div>
+
     <h3>Данные</h3>
     <button class="btn sm" onclick="exportData()">Экспорт JSON</button>
     <button class="btn sm" onclick="importData()" style="margin-left:8px">Импорт</button>
     <button class="btn sm danger" onclick="resetAll()" style="margin-left:8px">Сбросить</button>
   `;
+}
+function toggleNativeTimer(on) {
+  state.settings.nativeTimer = !!on;
+  save();
+  toast(on ? "Родной таймер включён" : "Родной таймер выключен");
+}
+function setShortcutName(val) {
+  state.settings.shortcutName = String(val || "").trim();
+  save();
 }
 function jumpToDay(i) {
   const day = activeDays()[i];
@@ -1274,6 +1326,7 @@ Object.assign(window, {
   updateNotes, openReplaceModal, filterReplace, doReplace,
   openBodyWeightModal, saveBW, deleteBW, closeModal,
   deleteSession, jumpToDay, exportData, importData, resetAll,
+  switchProgram, openExerciseHistory, launchNativeTimer, toggleNativeTimer, setShortcutName,
 });
 
 // Hydrate nav icons
