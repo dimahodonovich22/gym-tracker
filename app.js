@@ -676,8 +676,11 @@ function openReplaceModal(exIdx) {
     return 2;
   };
 
-  const candidates = Object.keys(VIDEOS)
-    .filter(n => n !== cur.name)
+  // Кандидаты — объединение всех известных упражнений (VIDEOS + MUSCLES),
+  // а не только те, у кого есть видео. Кардио исключаем: подставлять его
+  // как замену силовому упражнению смысла нет.
+  const candidates = Array.from(new Set([...Object.keys(VIDEOS), ...Object.keys(MUSCLES)]))
+    .filter(n => n !== cur.name && MUSCLES[n]?.group !== "cardio")
     .sort((a, b) => {
       const ta = tier(a), tb = tier(b);
       if (ta !== tb) return ta - tb;
