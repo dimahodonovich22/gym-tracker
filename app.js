@@ -333,7 +333,7 @@ function startWorkout() {
     completedAt: null,
     completed: false,
     exercises: day.exercises.map(e => ({
-      name: e.name, warmup: e.warmup, scheme: e.scheme, rest: e.rest, rir: e.rir, video: e.video,
+      name: e.name, originalName: e.name, warmup: e.warmup, scheme: e.scheme, rest: e.rest, rir: e.rir, video: e.video,
       sets: [],
       cardio: isCardio(e) ? { duration: "", type: "", hr: "" } : null,
       notes: "",
@@ -676,11 +676,20 @@ function openReplaceModal(exIdx) {
     return 2;
   };
 
+  // Оригинал этого слота (из снимка сессии; для старых сессий без поля —
+  // берём из программы по позиции). Если текущее упражнение уже заменено,
+  // оригинал закрепляем сверху отдельной секцией, чтобы легко откатить.
+  const orig = cur.originalName
+    || PROGRAMS.find(p => p.id === s.programId)?.days[s.dayIndex]?.exercises[exIdx]?.name
+    || null;
+  const showOriginal = orig && orig !== cur.name;
+
   // Кандидаты — объединение всех известных упражнений (VIDEOS + MUSCLES),
   // а не только те, у кого есть видео. Кардио исключаем: подставлять его
-  // как замену силовому упражнению смысла нет.
+  // как замену силовому упражнению смысла нет. Оригинал тоже убираем из
+  // общего списка — он показан отдельной закреплённой секцией сверху.
   const candidates = Array.from(new Set([...Object.keys(VIDEOS), ...Object.keys(MUSCLES)]))
-    .filter(n => n !== cur.name && MUSCLES[n]?.group !== "cardio")
+    .filter(n => n !== cur.name && n !== (showOriginal ? orig : null) && MUSCLES[n]?.group !== "cardio")
     .sort((a, b) => {
       const ta = tier(a), tb = tier(b);
       if (ta !== tb) return ta - tb;
@@ -689,6 +698,15 @@ function openReplaceModal(exIdx) {
 
   const TIER_LABELS = ["— Та же мышца —", "— Та же группа —", "— Остальные —", "— Остальные —"];
   let html = "";
+  if (showOriginal) {
+    html += `<div class="list-header small muted" style="padding:8px 4px 4px; font-weight:600">— Вернуть оригинал —</div>`;
+    html += `
+      <div class="list-item" onclick="doReplace(${exIdx}, ${JSON.stringify(orig).replace(/"/g, '&quot;')})">
+        <div><div class="title small">${esc(orig)}</div></div>
+        <div class="right">${icon("chevronRight",18)}</div>
+      </div>
+    `;
+  }
   let lastTier = -1;
   for (const name of candidates) {
     const t = tier(name);
