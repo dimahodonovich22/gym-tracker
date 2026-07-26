@@ -24,8 +24,8 @@
     <div class="time" id="restTime">0:00</div>
   </div>
   <div style="display:flex; gap:6px">
-    <button onclick="addRest(15)">+15с</button>
-    <button onclick="skipRest()">Пропустить</button>
+    <button id="restPlus" onclick="addRest(15)">+15с</button>
+    <button id="restSkip" onclick="skipRest()">Пропустить</button>
   </div>
 </div>
 
@@ -46,6 +46,7 @@
 </audio>
 
 <script src="./icons.js"></script>
+<script src="./i18n.js"></script>
 <script src="./program.js"></script>
 <script src="./app.js"></script>
 </body>

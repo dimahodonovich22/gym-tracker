@@ -7,7 +7,7 @@ const DEFAULT_STATE = {
   sessions: [],
   activeSessionId: null,
   bodyWeights: [],
-  settings: { unit: "kg", nativeTimer: false, shortcutName: "Таймер отдыха" },
+  settings: { unit: "kg", nativeTimer: false, shortcutName: "Таймер отдыха", lang: "ru" },
 };
 let state = load();
 
@@ -27,7 +27,8 @@ function migrate(s) {
     s.nextDayByProgram["fullbody-cut"] = s.nextDayIndex || 0;
   }
   // Ensure newer settings keys exist on older saved states.
-  s.settings = { unit: "kg", nativeTimer: false, shortcutName: "Таймер отдыха", ...(s.settings || {}) };
+  s.settings = { unit: "kg", nativeTimer: false, shortcutName: "Таймер отдыха", lang: "ru", ...(s.settings || {}) };
+  if (s.settings.lang !== "uk") s.settings.lang = "ru";
   return s;
 }
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -56,9 +57,9 @@ const $ = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-const fmtDate = iso => new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "short", year: "numeric" });
-const fmtDateTime = iso => new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "short" }) + ", " +
-  new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+const fmtDate = iso => new Date(iso).toLocaleDateString(localeTag(), { day: "2-digit", month: "short", year: "numeric" });
+const fmtDateTime = iso => new Date(iso).toLocaleDateString(localeTag(), { day: "2-digit", month: "short" }) + ", " +
+  new Date(iso).toLocaleTimeString(localeTag(), { hour: "2-digit", minute: "2-digit" });
 function toast(msg) {
   const el = $("#toast");
   el.textContent = msg;
@@ -67,45 +68,12 @@ function toast(msg) {
   toast._t = setTimeout(() => el.classList.remove("show"), 1800);
 }
 // ====== WELCOME POPUP (on app open) ======
-const WELCOME_GREETINGS = [
-  "С возвращением!",
-  "Здарова, чемпион!",
-  "Готов жать?",
-  "Время качаться!",
-  "На железо?",
-];
-const WELCOME_QUESTIONS = [
-  "Готов сегодня поработать?",
-  "Сегодня прогресс или прогресс?",
-  "Покачаемся?",
-  "Идём за рекордом?",
-  "Тренировка ждёт",
-];
-const WELCOME_SUBTITLES = [
-  "Каждая тренировка — кирпичик в фундамент",
-  "Сегодня ты сильнее, чем вчера",
-  "Дисциплина бьёт мотивацию",
-  "Прогресс любит постоянство",
-  "Ещё одна тренировка — ещё один шаг",
-  "Слабый план лучше идеальной отговорки",
-  "Тяжёлое сегодня — лёгкое завтра",
-  "Железо не врёт",
-  "Один подход в копилку",
-  "Ты пришёл — половина дела сделана",
-];
-const WELCOME_BUTTONS = [
-  "Поехали",
-  "Погнали",
-  "К железу",
-  "Жмём",
-  "Качаемся",
-  "Вперёд",
-];
+// Тексты живут в i18n.js (welcomeGreetings / welcomeQuestions / …) на обоих языках.
 function showWelcome() {
-  const greet = WELCOME_GREETINGS[Math.floor(Math.random() * WELCOME_GREETINGS.length)];
-  const question = WELCOME_QUESTIONS[Math.floor(Math.random() * WELCOME_QUESTIONS.length)];
-  const subtitle = WELCOME_SUBTITLES[Math.floor(Math.random() * WELCOME_SUBTITLES.length)];
-  const btn = WELCOME_BUTTONS[Math.floor(Math.random() * WELCOME_BUTTONS.length)];
+  const greet = pickRandom("welcomeGreetings");
+  const question = pickRandom("welcomeQuestions");
+  const subtitle = pickRandom("welcomeSubtitles");
+  const btn = pickRandom("welcomeButtons");
   const el = document.createElement("div");
   el.className = "welcome-pop";
   let dismissed = false;
@@ -116,7 +84,7 @@ function showWelcome() {
     setTimeout(() => el.remove(), 320);
   };
   el.innerHTML = `
-    <div class="welcome-card" role="dialog" aria-label="Приветствие">
+    <div class="welcome-card" role="dialog" aria-label="${esc(t("welcomeAria"))}">
       <span class="welcome-spark s1">${icon("dumbbell", 22)}</span>
       <span class="welcome-spark s2">${icon("dumbbell", 16)}</span>
       <span class="welcome-spark s3">${icon("trophy", 18)}</span>
@@ -179,6 +147,17 @@ function lastSessionSet(exName, setIdx) {
   }
   return null;
 }
+function lastSessionWarmup(exName) {
+  for (let i = state.sessions.length - 1; i >= 0; i--) {
+    const s = state.sessions[i];
+    if (!s.completed || s.id === state.activeSessionId) continue;
+    const ex = s.exercises.find(e => e.name === exName);
+    if (!ex) continue;
+    const warm = (ex.sets || []).find(x => x.done && x.type === "warmup");
+    if (warm) return warm;
+  }
+  return null;
+}
 function findLastPerformance(name, excludeSessionId) {
   for (let i = state.sessions.length - 1; i >= 0; i--) {
     const s = state.sessions[i];
@@ -209,6 +188,8 @@ function route() {
     body: renderBody,
     program: renderProgram,
     exercise: () => renderExerciseHistory(param),
+    guest: renderGuest,
+    guestsession: () => renderGuestSession(param),
   }[name] || renderHome)(app);
   $$("nav.bottom a").forEach(a => {
     a.classList.toggle("active", a.dataset.route === name ||
@@ -240,65 +221,65 @@ function renderHome(app) {
         <div class="logo">GT</div>
         <h1>GymTracker</h1>
       </div>
-      <button class="btn sm ghost" onclick="location.hash='program'">Программа</button>
+      <button class="btn sm ghost" onclick="location.hash='program'">${esc(t("program"))}</button>
     </header>
 
     ${active ? `
       <div class="card accent">
-        <div class="pill">Активная тренировка</div>
-        <h2 style="margin-top:6px; margin-bottom:0">${esc(active.dayName)}</h2>
-        <div class="small muted">Начата ${fmtDateTime(active.startedAt)}</div>
+        <div class="pill">${esc(t("activeWorkout"))}</div>
+        <h2 style="margin-top:6px; margin-bottom:0">${esc(dayLabel(active.dayName))}</h2>
+        <div class="small muted">${esc(t("startedAt", fmtDateTime(active.startedAt)))}</div>
         <div class="row" style="margin-top:14px; gap:8px;">
-          <button class="btn primary" style="flex:1" onclick="location.hash='workout'">Продолжить</button>
-          <button class="btn danger sm" onclick="cancelActive()">Отменить</button>
+          <button class="btn primary" style="flex:1" onclick="location.hash='workout'">${esc(t("continueBtn"))}</button>
+          <button class="btn danger sm" onclick="cancelActive()">${esc(t("cancelBtn"))}</button>
         </div>
       </div>
     ` : `
       <div class="card accent">
-        <div class="pill">Следующая тренировка</div>
-        <h2 style="margin-top:6px">${esc(day.name)}</h2>
-        <div class="small muted">${esc(activeProgram().name)} · ${esc(day.block)} · ${day.exercises.length} упражнений</div>
-        <button class="btn primary block" style="margin-top:14px" onclick="startWorkout()">Начать тренировку</button>
+        <div class="pill">${esc(t("nextWorkout"))}</div>
+        <h2 style="margin-top:6px">${esc(dayLabel(day.name))}</h2>
+        <div class="small muted">${esc(programLabel(activeProgram()))} · ${esc(blockLabel(day.block))} · ${esc(t("exercisesCount", day.exercises.length))}</div>
+        <button class="btn primary block" style="margin-top:14px" onclick="startWorkout()">${esc(t("startWorkout"))}</button>
       </div>
     `}
 
     <div class="week-grid">
       <div class="stat">
         <div class="stat-v">${weekSessions.length}</div>
-        <div class="stat-l">тренировок</div>
+        <div class="stat-l">${esc(t("statWorkouts"))}</div>
       </div>
       <div class="stat">
         <div class="stat-v">${weekSets}</div>
-        <div class="stat-l">подходов</div>
+        <div class="stat-l">${esc(t("statSets"))}</div>
       </div>
       <div class="stat">
         <div class="stat-v">${weekVolume > 999 ? (weekVolume/1000).toFixed(1)+"т" : weekVolume}</div>
-        <div class="stat-l">тоннаж</div>
+        <div class="stat-l">${esc(t("statVolume"))}</div>
       </div>
     </div>
-    <div class="small muted" style="text-align:center; margin-top:-4px; margin-bottom:16px">на этой неделе</div>
+    <div class="small muted" style="text-align:center; margin-top:-4px; margin-bottom:16px">${esc(t("thisWeek"))}</div>
 
     <div class="card">
       <div class="row between">
         <div>
-          <div class="small muted">Вес тела</div>
-          <div style="font-size:22px; font-weight:700">${lastBW ? lastBW.weight + " кг" : "—"}</div>
+          <div class="small muted">${esc(t("bodyWeight"))}</div>
+          <div style="font-size:22px; font-weight:700">${lastBW ? lastBW.weight + " " + t("kg") : "—"}</div>
           ${lastBW ? `<div class="small muted">${fmtDate(lastBW.date)}</div>` : ""}
         </div>
-        <button class="btn sm" onclick="openBodyWeightModal()">${icon("plus",14)} Записать</button>
+        <button class="btn sm" onclick="openBodyWeightModal()">${icon("plus",14)} ${esc(t("logBtn"))}</button>
       </div>
     </div>
 
-    <h3>Недавние тренировки</h3>
+    <h3>${esc(t("recentWorkouts"))}</h3>
     ${recent.length ? recent.map(s => `
       <div class="list-item" onclick="location.hash='session/${s.id}'">
         <div>
-          <div class="title">${esc(s.dayName)}</div>
-          <div class="sub">${fmtDateTime(s.startedAt)} · ${countSets(s)} подходов</div>
+          <div class="title">${esc(dayLabel(s.dayName))}</div>
+          <div class="sub">${fmtDateTime(s.startedAt)} · ${esc(t("setsShort", countSets(s)))}</div>
         </div>
         <div class="right">${icon("chevronRight",18)}</div>
       </div>
-    `).join("") : `<div class="empty">Пока нет завершённых тренировок</div>`}
+    `).join("") : `<div class="empty">${esc(t("noCompleted"))}</div>`}
   `;
 }
 
@@ -347,7 +328,7 @@ function startWorkout() {
   requestWakeLock();
 }
 function cancelActive() {
-  if (!confirm("Отменить текущую тренировку? Данные будут удалены.")) return;
+  if (!confirm(t("confirmCancelWorkout"))) return;
   state.sessions = state.sessions.filter(s => s.id !== state.activeSessionId);
   state.activeSessionId = null;
   save();
@@ -370,20 +351,20 @@ function renderWorkout(app) {
 
   app.innerHTML = `
     <header class="top">
-      <button class="btn sm ghost" onclick="location.hash='home'">${icon("arrowLeft",16)} Назад</button>
-      <button class="btn sm" onclick="finishWorkout()">Завершить</button>
+      <button class="btn sm ghost" onclick="location.hash='home'">${icon("arrowLeft",16)} ${esc(t("back"))}</button>
+      <button class="btn sm" onclick="finishWorkout()">${esc(t("finish"))}</button>
     </header>
-    <h1>${esc(s.dayName)}</h1>
-    <div class="small muted">${esc(s.block)}</div>
+    <h1>${esc(dayLabel(s.dayName))}</h1>
+    <div class="small muted">${esc(blockLabel(s.block))}</div>
     <div class="pill" style="margin-top:8px">${icon("calendar", 13)} ${fmtDateTime(s.startedAt)}</div>
     <div class="progress" style="margin-top:10px"><div style="width:${pct}%"></div></div>
-    <div class="small muted" style="margin-top:6px">${doneEx} / ${s.exercises.length} упражнений</div>
+    <div class="small muted" style="margin-top:6px">${esc(t("exProgress", doneEx, s.exercises.length))}</div>
 
     <div style="margin-top:20px">
       ${s.exercises.map((e, i) => renderExerciseCard(e, i, s)).join("")}
     </div>
 
-    <button class="btn primary block" style="margin-top:20px" onclick="finishWorkout()">Завершить тренировку</button>
+    <button class="btn primary block" style="margin-top:20px" onclick="finishWorkout()">${esc(t("finishWorkout"))}</button>
   `;
 }
 
@@ -406,12 +387,12 @@ function renderExerciseCard(e, i, s) {
       <div class="ex-header" onclick="toggleExercise(${i})">
         <div class="num">${e.done ? icon("check",16) : i+1}</div>
         <div class="ex-title">
-          <div class="n">${esc(e.name)}</div>
+          <div class="n">${esc(exName(e.name))}</div>
           <div class="meta">
-            ${e.warmup ? `<span class="pill warm">Разминка</span>` : ""}
-            <span class="pill">${esc(e.scheme)}</span>
-            <span class="pill">Отдых: ${esc(e.rest)}</span>
-            ${e.rir && e.rir !== "—" ? `<span class="pill rir">ЗДО ${esc(e.rir)}</span>` : ""}
+            ${e.warmup ? `<span class="pill warm">${esc(t("warmupPill"))}</span>` : ""}
+            <span class="pill">${esc(fmtScheme(e.scheme))}</span>
+            <span class="pill">${esc(t("restLabel", fmtRest(e.rest)))}</span>
+            ${e.rir && e.rir !== "—" ? `<span class="pill rir">${esc(t("rirPill", e.rir))}</span>` : ""}
             ${progressBadge}
           </div>
         </div>
@@ -419,22 +400,22 @@ function renderExerciseCard(e, i, s) {
       </div>
       <div class="ex-body">
         <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px">
-          ${e.video ? `<a href="${esc(e.video)}" target="_blank" rel="noopener" class="btn sm ghost">${icon("play",16)} Техника</a>` : ""}
-          <button class="btn sm ghost" onclick="openReplaceModal(${i})">${icon("swap",16)} Заменить</button>
-          <button class="btn sm ghost" onclick="openExerciseHistory(${i})">${icon("trending",16)} История</button>
+          ${e.video ? `<a href="${esc(e.video)}" target="_blank" rel="noopener" class="btn sm ghost">${icon("play",16)} ${esc(t("technique"))}</a>` : ""}
+          <button class="btn sm ghost" onclick="openReplaceModal(${i})">${icon("swap",16)} ${esc(t("replace"))}</button>
+          <button class="btn sm ghost" onclick="openExerciseHistory(${i})">${icon("trending",16)} ${esc(t("historyBtn"))}</button>
         </div>
-        ${last ? `<div class="small muted" style="margin-bottom:8px">Прошлая (${fmtDate(last.date)}): ${last.cardio
-          ? (last.cardio.duration + " мин" + (last.cardio.type ? " · " + esc(last.cardio.type) : ""))
+        ${last ? `<div class="small muted" style="margin-bottom:8px">${esc(t("lastTime", fmtDate(last.date)))} ${last.cardio
+          ? (last.cardio.duration + " " + t("min") + (last.cardio.type ? " · " + esc(cardioTypeLabel(last.cardio.type)) : ""))
           : last.sets.map(x => `${x.weight}×${x.reps}`).join(", ")}</div>` : ""}
 
         ${isCardio(e) ? renderCardioBody(e, i) : renderSetsBody(e, i)}
 
-        <textarea class="notes" placeholder="Заметки к упражнению…" onblur="updateNotes(${i}, this.value)">${esc(e.notes || "")}</textarea>
+        <textarea class="notes" placeholder="${esc(t("notesPlaceholder"))}" onblur="updateNotes(${i}, this.value)">${esc(e.notes || "")}</textarea>
 
         <div class="ex-actions">
           ${e.done
-            ? `<button class="btn sm" onclick="toggleExerciseDone(${i})">${icon("undo",16)} Отменить готово</button>`
-            : `<button class="btn sm" onclick="toggleExerciseDone(${i})">${icon("check",16)} Готово</button>`}
+            ? `<button class="btn sm" onclick="toggleExerciseDone(${i})">${icon("undo",16)} ${esc(t("undoDone"))}</button>`
+            : `<button class="btn sm" onclick="toggleExerciseDone(${i})">${icon("check",16)} ${esc(t("done"))}</button>`}
         </div>
       </div>
     </div>
@@ -454,10 +435,10 @@ function renderSetsBody(e, i) {
     rows.push(setRow(i, si, actualSets[si] || null, e));
   }
   return `
-    <div class="col-labels"><div>#</div><div>Вес (кг)</div><div>Повторы</div><div></div></div>
+    <div class="col-labels"><div>${esc(t("colNum"))}</div><div>${esc(t("colWeight"))}</div><div>${esc(t("colReps"))}</div><div></div></div>
     ${rows.join("")}
     ${hasDropset(e) && !e.sets.some(x => x.type === "dropset") ? `
-      <button class="btn sm ghost" style="margin-top:6px; color:var(--warn)" onclick="addDropsetSet(${i})">${icon("plus",14)} Добавить дропсет</button>
+      <button class="btn sm ghost" style="margin-top:6px; color:var(--warn)" onclick="addDropsetSet(${i})">${icon("plus",14)} ${esc(t("addDropset"))}</button>
     ` : ""}
   `;
 }
@@ -472,14 +453,14 @@ function setRow(exIdx, setIdx, set, ex) {
     const t = ex.sets[k]?.type || defaultSetType(ex, k);
     if (t !== "warmup") workingIdx++;
   }
-  const ghost = isWarmup ? null : lastSessionSet(ex.name, workingIdx);
+  const ghost = isWarmup ? lastSessionWarmup(ex.name) : lastSessionSet(ex.name, workingIdx);
   const wPh = ghost?.weight != null && ghost.weight !== "" ? String(ghost.weight) : "0";
-  const rPh = ghost?.reps != null && ghost.reps !== "" ? String(ghost.reps) : (repsHintForSet(ex, workingIdx) || "0");
+  const rPh = ghost?.reps != null && ghost.reps !== "" ? String(ghost.reps) : (isWarmup ? "0" : (repsHintForSet(ex, workingIdx) || "0"));
   const label = isWarmup ? "Р" : (isDrop ? "D" : setIdx + 1);
 
   return `
     <div class="set-row ${s.done ? "logged" : ""} ${isWarmup ? "warmup" : ""} ${isDrop ? "dropset-row" : ""}" data-ex="${exIdx}" data-si="${setIdx}">
-      <div class="idx ${isWarmup ? "warmup-idx" : ""} ${isDrop ? "drop-idx" : ""}" onclick="toggleSetType(${exIdx},${setIdx})" title="Переключить тип">${label}</div>
+      <div class="idx ${isWarmup ? "warmup-idx" : ""} ${isDrop ? "drop-idx" : ""}" onclick="toggleSetType(${exIdx},${setIdx})" title="${esc(t("toggleType"))}">${label}</div>
       <input type="text" inputmode="decimal" autocomplete="off" placeholder="${esc(wPh)}" value="${s.weight ?? ""}" onchange="updateSet(${exIdx},${setIdx},'weight',this.value)">
       <input type="text" inputmode="numeric" autocomplete="off" placeholder="${esc(rPh)}" value="${s.reps ?? ""}" onchange="updateSet(${exIdx},${setIdx},'reps',this.value)" onblur="maybeAutoLog(${exIdx},${setIdx})" onkeydown="if(event.key==='Enter'){this.blur();}">
       <div class="del" onclick="${s.done ? `unlogSet(${exIdx},${setIdx})` : `logSet(${exIdx},${setIdx})`}">${s.done ? icon("undo",16) : icon("check",16)}</div>
@@ -504,15 +485,15 @@ function renderCardioBody(e, i) {
   const c = e.cardio || { duration: "", type: "", hr: "" };
   return `
     <div class="cardio-box">
-      <label>Длительность (мин)</label>
-      <input type="number" inputmode="numeric" placeholder="${esc(e.scheme)}" value="${c.duration ?? ""}" onchange="updateCardio(${i},'duration',this.value)">
-      <label>Тип</label>
+      <label>${esc(t("cardioDuration"))}</label>
+      <input type="number" inputmode="numeric" placeholder="${esc(fmtScheme(e.scheme))}" value="${c.duration ?? ""}" onchange="updateCardio(${i},'duration',this.value)">
+      <label>${esc(t("cardioType"))}</label>
       <select onchange="updateCardio(${i},'type',this.value)">
-        <option value="">— выбрать —</option>
-        ${["Дорожка","Велотренажёр","Эллипсоид","Гребля","Ходьба","Степпер","Другое"].map(t =>
-          `<option ${c.type===t?"selected":""}>${t}</option>`).join("")}
+        <option value="">${esc(t("cardioChoose"))}</option>
+        ${I18N.ru.cardioTypes.map((val, k) =>
+          `<option value="${esc(val)}" ${c.type===val?"selected":""}>${esc(t("cardioTypes")[k])}</option>`).join("")}
       </select>
-      <label>Средний пульс (опц.)</label>
+      <label>${esc(t("cardioHr"))}</label>
       <input type="number" inputmode="numeric" placeholder="140" value="${c.hr ?? ""}" onchange="updateCardio(${i},'hr',this.value)">
     </div>
   `;
@@ -562,7 +543,7 @@ function logSet(ei, si) {
   while (ex.sets.length <= si) ex.sets.push({ weight: "", reps: "", done: false, type: defaultSetType(ex, ex.sets.length) });
   const set = ex.sets[si];
   if ((set.weight === "" || set.weight == null) && (set.reps === "" || set.reps == null)) {
-    toast("Введите вес или повторы"); return;
+    toast(t("enterWeightOrReps")); return;
   }
   set.done = true;
   set.loggedAt = new Date().toISOString();
@@ -693,16 +674,16 @@ function openReplaceModal(exIdx) {
     .sort((a, b) => {
       const ta = tier(a), tb = tier(b);
       if (ta !== tb) return ta - tb;
-      return a.localeCompare(b, "ru");
+      return exName(a).localeCompare(exName(b), localeTag());
     });
 
-  const TIER_LABELS = ["— Та же мышца —", "— Та же группа —", "— Остальные —", "— Остальные —"];
+  const TIER_LABELS = [t("tierSameMuscle"), t("tierSameGroup"), t("tierOther"), t("tierOther")];
   let html = "";
   if (showOriginal) {
-    html += `<div class="list-header small muted" style="padding:8px 4px 4px; font-weight:600">— Вернуть оригинал —</div>`;
+    html += `<div class="list-header small muted" style="padding:8px 4px 4px; font-weight:600">${esc(t("tierOriginal"))}</div>`;
     html += `
       <div class="list-item" onclick="doReplace(${exIdx}, ${JSON.stringify(orig).replace(/"/g, '&quot;')})">
-        <div><div class="title small">${esc(orig)}</div></div>
+        <div><div class="title small">${esc(exName(orig))}</div></div>
         <div class="right">${icon("chevronRight",18)}</div>
       </div>
     `;
@@ -712,12 +693,12 @@ function openReplaceModal(exIdx) {
     const t = tier(name);
     const headerTier = t === 3 ? 2 : t;
     if (headerTier !== lastTier) {
-      html += `<div class="list-header small muted" data-tier="${headerTier}" style="padding:8px 4px 4px; font-weight:600">${TIER_LABELS[headerTier]}</div>`;
+      html += `<div class="list-header small muted" data-tier="${headerTier}" style="padding:8px 4px 4px; font-weight:600">${esc(TIER_LABELS[headerTier])}</div>`;
       lastTier = headerTier;
     }
     html += `
       <div class="list-item" onclick="doReplace(${exIdx}, ${JSON.stringify(name).replace(/"/g, '&quot;')})">
-        <div><div class="title small">${esc(name)}</div></div>
+        <div><div class="title small">${esc(exName(name))}</div></div>
         <div class="right">${icon("chevronRight",18)}</div>
       </div>
     `;
@@ -727,13 +708,13 @@ function openReplaceModal(exIdx) {
   bg.innerHTML = `
     <div class="modal">
       <div class="handle"></div>
-      <h2>Заменить упражнение</h2>
-      <div class="small muted" style="margin-bottom:10px">Текущее: ${esc(cur.name)}</div>
-      <input type="text" id="replaceSearch" placeholder="Поиск…" oninput="filterReplace()">
+      <h2>${esc(t("replaceTitle"))}</h2>
+      <div class="small muted" style="margin-bottom:10px">${esc(t("currentEx", exName(cur.name)))}</div>
+      <input type="text" id="replaceSearch" placeholder="${esc(t("search"))}" oninput="filterReplace()">
       <div id="replaceList" style="margin-top:10px; max-height:55vh; overflow-y:auto">
         ${html}
       </div>
-      <button class="btn ghost block" style="margin-top:12px" onclick="closeModal()">Отмена</button>
+      <button class="btn ghost block" style="margin-top:12px" onclick="closeModal()">${esc(t("cancel"))}</button>
     </div>
   `;
   bg.classList.add("open");
@@ -775,7 +756,7 @@ function doReplace(exIdx, newName) {
   save();
   closeModal();
   renderWorkout($("#app"));
-  toast("Заменено");
+  toast(t("replaced"));
 }
 
 // Open per-exercise history from the workout screen (by index to avoid
@@ -791,7 +772,7 @@ function finishWorkout() {
   const s = currentSession();
   if (!s) return;
   const anyLogged = s.exercises.some(e => (e.sets||[]).some(x => x.done) || (e.cardio && e.cardio.duration));
-  if (!anyLogged && !confirm("Нет залогированных подходов. Всё равно завершить?")) return;
+  if (!anyLogged && !confirm(t("confirmFinishEmpty"))) return;
 
   // Detect new PRs BEFORE marking completed (comparing against history excluding this session)
   const newPRs = detectNewPRs(s);
@@ -810,9 +791,9 @@ function finishWorkout() {
 
   if (newPRs.length) {
     fireConfetti();
-    toast(`Новый рекорд: ${newPRs[0].name}!`);
+    toast(t("newPR", exName(newPRs[0].name)));
   } else {
-    toast("Тренировка сохранена");
+    toast(t("workoutSaved"));
   }
   location.hash = "home";
 }
@@ -917,12 +898,12 @@ function updateRestBar() {
   const left = Math.max(0, Math.round((restEnd - Date.now()) / 1000));
   bar.classList.remove("hidden");
   $("#restTime").textContent = `${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
-  $("#restLabel").textContent = restFor ? "Отдых · " + restFor : "Отдых";
+  $("#restLabel").textContent = restFor ? t("rest") + " · " + exName(restFor) : t("rest");
   if (left <= 0) {
     stopRest();
     try { navigator.vibrate?.([300,120,300]); } catch {}
     playBeep();
-    toast("Отдых окончен");
+    toast(t("restOver"));
   }
 }
 function addRest(s) { if (restEnd) restEnd += s * 1000; updateRestBar(); }
@@ -948,75 +929,83 @@ function playBeep() {
 function renderHistory(app) {
   const sessions = state.sessions.filter(s => s.completed).sort((a,b)=>b.startedAt.localeCompare(a.startedAt));
   app.innerHTML = `
-    <header class="top"><h1>История</h1></header>
+    <header class="top"><h1>${esc(t("historyTitle"))}</h1></header>
     ${sessions.length ? sessions.map(s => `
       <div class="list-item" onclick="location.hash='session/${s.id}'">
         <div>
-          <div class="title">${esc(s.dayName)}</div>
-          <div class="sub">${fmtDateTime(s.startedAt)} · ${countSets(s)} подх. · ${sessionVolume(s)} кг</div>
+          <div class="title">${esc(dayLabel(s.dayName))}</div>
+          <div class="sub">${fmtDateTime(s.startedAt)} · ${esc(t("sessionMeta", countSets(s), sessionVolume(s)))}</div>
         </div>
         <div class="right">${icon("chevronRight",18)}</div>
       </div>
-    `).join("") : `<div class="empty">Нет завершённых тренировок</div>`}
+    `).join("") : `<div class="empty">${esc(t("noCompletedShort"))}</div>`}
   `;
+}
+
+// Карточки упражнений одной тренировки. Используется и своей историей,
+// и режимом просмотра чужих результатов (там карточки некликабельны).
+function sessionExercisesHtml(s, { clickable = true } = {}) {
+  return s.exercises.map((e, i) => `
+    <div class="card"${clickable ? ` onclick="location.hash='exercise/'+encodeURIComponent(${JSON.stringify(e.name)})" style="cursor:pointer"` : ""}>
+      <div class="row between">
+        <div style="flex:1">
+          <div style="font-weight:600">${i+1}. ${esc(exName(e.name))}</div>
+          <div class="small muted">${esc(fmtScheme(e.scheme))}${e.rir && e.rir !== "—" ? " · " + esc(t("rirShort", e.rir)) : ""}</div>
+        </div>
+      </div>
+      ${isCardio(e) && e.cardio ? `
+        <div class="small" style="margin-top:8px">
+          ${e.cardio.duration ? e.cardio.duration + " " + esc(t("min")) : "—"}
+          ${e.cardio.type ? " · " + esc(cardioTypeLabel(e.cardio.type)) : ""}
+          ${e.cardio.hr ? " · " + esc(t("pulse")) + " " + e.cardio.hr : ""}
+        </div>
+      ` : ((e.sets || []).filter(x=>x.done).length ? `
+        <div style="margin-top:10px">
+          ${e.sets.filter(x=>x.done).map((x, si) => `
+            <div class="small" style="padding:4px 0; border-bottom:1px solid var(--line)">
+              <span class="muted">${x.type === "warmup" ? "Р" : (x.type === "dropset" ? "D" : si+1)}.</span>
+              ${x.weight || 0} ${esc(t("kg"))} × ${x.reps || 0}
+              ${x.drops ? " → " + x.drops.map(d => `${d.weight}×${d.reps}`).join(" → ") : ""}
+            </div>
+          `).join("")}
+        </div>
+      ` : `<div class="small muted" style="margin-top:6px">${esc(t("noLoggedSets"))}</div>`)}
+      ${e.notes ? `<div class="small muted" style="margin-top:8px; font-style:italic">${icon("note",13)} ${esc(e.notes)}</div>` : ""}
+    </div>
+  `).join("");
 }
 
 function renderSessionDetail(id) {
   const s = state.sessions.find(x => x.id === id);
   const app = $("#app");
-  if (!s) { app.innerHTML = `<div class="empty">Тренировка не найдена</div>`; return; }
+  if (!s) { app.innerHTML = `<div class="empty">${esc(t("sessionNotFound"))}</div>`; return; }
   app.innerHTML = `
     <header class="top">
-      <button class="btn sm ghost" onclick="location.hash='history'">${icon("arrowLeft",16)} Назад</button>
-      <button class="btn sm danger" onclick="deleteSession('${s.id}')">Удалить</button>
+      <button class="btn sm ghost" onclick="location.hash='history'">${icon("arrowLeft",16)} ${esc(t("back"))}</button>
+      <button class="btn sm danger" onclick="deleteSession('${s.id}')">${esc(t("del"))}</button>
     </header>
-    <h1>${esc(s.dayName)}</h1>
-    <div class="small muted">${fmtDateTime(s.startedAt)} · ${esc(s.block)}</div>
-    <div class="small muted">${countSets(s)} подходов · ${sessionVolume(s)} кг суммарно</div>
+    <h1>${esc(dayLabel(s.dayName))}</h1>
+    <div class="small muted">${fmtDateTime(s.startedAt)} · ${esc(blockLabel(s.block))}</div>
+    <div class="small muted">${esc(t("sessionTotals", countSets(s), sessionVolume(s)))}</div>
 
     <div style="margin-top:20px">
-      ${s.exercises.map((e, i) => `
-        <div class="card" onclick="location.hash='exercise/'+encodeURIComponent(${JSON.stringify(e.name)})" style="cursor:pointer">
-          <div class="row between">
-            <div style="flex:1">
-              <div style="font-weight:600">${i+1}. ${esc(e.name)}</div>
-              <div class="small muted">${esc(e.scheme)}${e.rir && e.rir !== "—" ? " · ЗДО " + esc(e.rir) : ""}</div>
-            </div>
-          </div>
-          ${isCardio(e) && e.cardio ? `
-            <div class="small" style="margin-top:8px">
-              ${e.cardio.duration ? e.cardio.duration + " мин" : "—"}
-              ${e.cardio.type ? " · " + esc(e.cardio.type) : ""}
-              ${e.cardio.hr ? " · пульс " + e.cardio.hr : ""}
-            </div>
-          ` : (e.sets.filter(x=>x.done).length ? `
-            <div style="margin-top:10px">
-              ${e.sets.filter(x=>x.done).map((x, si) => `
-                <div class="small" style="padding:4px 0; border-bottom:1px solid var(--line)">
-                  <span class="muted">${x.type === "warmup" ? "Р" : (x.type === "dropset" ? "D" : si+1)}.</span>
-                  ${x.weight || 0} кг × ${x.reps || 0}
-                  ${x.drops ? " → " + x.drops.map(d => `${d.weight}×${d.reps}`).join(" → ") : ""}
-                </div>
-              `).join("")}
-            </div>
-          ` : `<div class="small muted" style="margin-top:6px">Нет залогированных подходов</div>`)}
-          ${e.notes ? `<div class="small muted" style="margin-top:8px; font-style:italic">${icon("note",13)} ${esc(e.notes)}</div>` : ""}
-        </div>
-      `).join("")}
+      ${sessionExercisesHtml(s)}
     </div>
   `;
 }
 function deleteSession(id) {
-  if (!confirm("Удалить эту тренировку?")) return;
+  if (!confirm(t("confirmDeleteSession"))) return;
   state.sessions = state.sessions.filter(s => s.id !== id);
   save();
   location.hash = "history";
 }
 
 // ====== PRs ======
-function renderPRs(app) {
+// Лучший подход по e1RM для каждого упражнения. Работает над любым списком
+// сессий, поэтому годится и для своей истории, и для чужих результатов.
+function computePRs(sessions) {
   const prs = {};
-  for (const s of state.sessions.filter(x=>x.completed)) {
+  for (const s of sessions.filter(x => x.completed)) {
     for (const e of s.exercises) {
       for (const set of (e.sets || [])) {
         if (!set.done || set.type === "warmup" || !set.weight || !set.reps) continue;
@@ -1028,21 +1017,25 @@ function renderPRs(app) {
       }
     }
   }
-  const arr = Object.entries(prs).sort((a,b)=>b[1].e1rm - a[1].e1rm);
+  return Object.entries(prs).sort((a,b)=>b[1].e1rm - a[1].e1rm);
+}
+
+function renderPRs(app) {
+  const arr = computePRs(state.sessions);
   app.innerHTML = `
-    <header class="top"><h1>Личные рекорды</h1></header>
+    <header class="top"><h1>${esc(t("prsTitle"))}</h1></header>
     ${arr.length ? arr.map(([name, pr]) => `
       <div class="list-item" onclick="location.hash='exercise/'+encodeURIComponent(${JSON.stringify(name)})">
         <div>
-          <div class="title">${esc(name)}</div>
+          <div class="title">${esc(exName(name))}</div>
           <div class="sub">${fmtDate(pr.date)}</div>
         </div>
         <div class="right">
           <div style="font-weight:700; color:var(--text)">${pr.weight} × ${pr.reps}</div>
-          <div class="sub">e1RM ≈ ${pr.e1rm.toFixed(1)} кг</div>
+          <div class="sub">${esc(t("e1rm", pr.e1rm.toFixed(1)))}</div>
         </div>
       </div>
-    `).join("") : `<div class="empty">Сделайте первую тренировку</div>`}
+    `).join("") : `<div class="empty">${esc(t("noPRs"))}</div>`}
   `;
 }
 
@@ -1063,28 +1056,28 @@ function renderExerciseHistory(name) {
 
   app.innerHTML = `
     <header class="top">
-      <button class="btn sm ghost" onclick="history.back()">${icon("arrowLeft",16)} Назад</button>
+      <button class="btn sm ghost" onclick="history.back()">${icon("arrowLeft",16)} ${esc(t("back"))}</button>
     </header>
-    <h1 style="font-size:20px">${esc(name)}</h1>
-    <div class="small muted" style="margin-bottom:14px">${entries.length} тренировок в истории</div>
+    <h1 style="font-size:20px">${esc(exName(name))}</h1>
+    <div class="small muted" style="margin-bottom:14px">${esc(t("inHistory", entries.length))}</div>
 
     ${entries.length ? `
       ${renderChart(entries)}
-      <h3>Все тренировки</h3>
+      <h3>${esc(t("allWorkouts"))}</h3>
       ${entries.slice().reverse().map(e => `
         <div class="card" onclick="location.hash='session/${e.sessionId}'" style="cursor:pointer">
           <div class="row between">
             <div style="font-weight:600">${fmtDate(e.date)}</div>
-            ${e.bestSet ? `<div class="small muted">Лучший: ${e.bestSet.weight}×${e.bestSet.reps} (e1RM ${e.bestE1rm.toFixed(1)})</div>` : ""}
+            ${e.bestSet ? `<div class="small muted">${esc(t("best", `${e.bestSet.weight}×${e.bestSet.reps} (e1RM ${e.bestE1rm.toFixed(1)})`))}</div>` : ""}
           </div>
           <div class="small" style="margin-top:6px">
             ${e.cardio?.duration
-              ? (e.cardio.duration + " мин" + (e.cardio.type ? " · " + esc(e.cardio.type) : ""))
+              ? (e.cardio.duration + " " + esc(t("min")) + (e.cardio.type ? " · " + esc(cardioTypeLabel(e.cardio.type)) : ""))
               : e.sets.map(x => `${x.weight}×${x.reps}`).join(", ")}
           </div>
         </div>
       `).join("")}
-    ` : `<div class="empty">Нет данных по этому упражнению</div>`}
+    ` : `<div class="empty">${esc(t("noExData"))}</div>`}
   `;
 }
 
@@ -1100,7 +1093,7 @@ function renderChart(entries) {
   const dots = pts.map(p => `<circle cx="${nx(p.x).toFixed(1)}" cy="${ny(p.y).toFixed(1)}" r="3" fill="#ff8a5c"/>`).join("");
   return `
     <div class="card">
-      <div class="small muted" style="margin-bottom:6px">Прогресс по e1RM (кг)</div>
+      <div class="small muted" style="margin-bottom:6px">${esc(t("chartE1rm"))}</div>
       <svg viewBox="0 0 ${w} ${h}" width="100%" style="display:block">
         <path d="${path}" fill="none" stroke="#ff6a3d" stroke-width="2"/>
         ${dots}
@@ -1117,19 +1110,19 @@ function renderBody(app) {
   const list = [...state.bodyWeights].sort((a,b)=>b.date.localeCompare(a.date));
   app.innerHTML = `
     <header class="top">
-      <h1>Вес тела</h1>
-      <button class="btn sm primary" onclick="openBodyWeightModal()">${icon("plus",14)} Записать</button>
+      <h1>${esc(t("bodyWeight"))}</h1>
+      <button class="btn sm primary" onclick="openBodyWeightModal()">${icon("plus",14)} ${esc(t("logBtn"))}</button>
     </header>
     ${list.length >= 2 ? renderBodyChart(list.slice().reverse()) : ""}
     ${list.length ? list.map(bw => `
       <div class="list-item">
         <div>
-          <div class="title">${bw.weight} кг</div>
+          <div class="title">${bw.weight} ${esc(t("kg"))}</div>
           <div class="sub">${fmtDate(bw.date)}</div>
         </div>
         <button class="btn sm ghost" onclick="deleteBW('${bw.date}')" style="color:var(--danger)">${icon("x",16)}</button>
       </div>
-    `).join("") : `<div class="empty">Записей пока нет</div>`}
+    `).join("") : `<div class="empty">${esc(t("noBodyWeights"))}</div>`}
   `;
 }
 function renderBodyChart(list) {
@@ -1142,7 +1135,7 @@ function renderBodyChart(list) {
   const path = pts.map((p,i) => (i?"L":"M") + nx(p.x).toFixed(1) + "," + ny(p.y).toFixed(1)).join(" ");
   return `
     <div class="card">
-      <div class="small muted" style="margin-bottom:6px">График веса (кг)</div>
+      <div class="small muted" style="margin-bottom:6px">${esc(t("chartBody"))}</div>
       <svg viewBox="0 0 ${w} ${h}" width="100%" style="display:block">
         <path d="${path}" fill="none" stroke="#ff6a3d" stroke-width="2"/>
         <text x="${pad}" y="${pad-4}" fill="#8b93a1" font-size="10">${yMax.toFixed(1)}</text>
@@ -1156,11 +1149,11 @@ function openBodyWeightModal() {
   bg.innerHTML = `
     <div class="modal">
       <div class="handle"></div>
-      <h2>Записать вес тела</h2>
+      <h2>${esc(t("logBodyWeight"))}</h2>
       <div class="stack" style="margin-top:16px">
-        <input type="text" id="bwInput" inputmode="decimal" autocomplete="off" placeholder="75,5 кг" autofocus>
-        <button class="btn primary block" onclick="saveBW()">Сохранить</button>
-        <button class="btn ghost block" onclick="closeModal()">Отмена</button>
+        <input type="text" id="bwInput" inputmode="decimal" autocomplete="off" placeholder="${esc(t("bwPlaceholder"))}" autofocus>
+        <button class="btn primary block" onclick="saveBW()">${esc(t("save"))}</button>
+        <button class="btn ghost block" onclick="closeModal()">${esc(t("cancel"))}</button>
       </div>
     </div>
   `;
@@ -1170,13 +1163,13 @@ function openBodyWeightModal() {
 function saveBW() {
   const raw = $("#bwInput").value;
   const v = parseFloat(String(raw).replace(",", "."));
-  if (!v || v < 20 || v > 400) { toast("Введите корректный вес"); return; }
+  if (!v || v < 20 || v > 400) { toast(t("badWeight")); return; }
   const today = new Date().toISOString().slice(0,10);
   state.bodyWeights = state.bodyWeights.filter(b => b.date.slice(0,10) !== today);
   state.bodyWeights.push({ date: new Date().toISOString(), weight: v });
   save();
   closeModal();
-  toast("Сохранено");
+  toast(t("saved"));
   route();
 }
 function deleteBW(date) {
@@ -1193,72 +1186,93 @@ function closeModal() {
 function renderProgram(app) {
   const days = activeDays();
   const nextIdx = getNextDayIndex();
+  const guest = loadGuest();
   app.innerHTML = `
     <header class="top">
-      <button class="btn sm ghost" onclick="location.hash='home'">${icon("arrowLeft",16)} Назад</button>
-      <h1>Программа</h1>
+      <button class="btn sm ghost" onclick="location.hash='home'">${icon("arrowLeft",16)} ${esc(t("back"))}</button>
+      <h1>${esc(t("programTitle"))}</h1>
       <div></div>
     </header>
     <div class="prog-switch">
       ${PROGRAMS.map(p => `
         <button class="btn sm ${p.id === state.activeProgramId ? 'primary' : 'ghost'}"
-                onclick="switchProgram('${p.id}')">${esc(p.name)}</button>
+                onclick="switchProgram('${p.id}')">${esc(programLabel(p))}</button>
       `).join("")}
     </div>
-    <div class="small muted" style="margin:12px 0 16px">${days.length} тренировок по кругу. Следующая: <b>${esc(days[nextIdx].name)}</b></div>
+    <div class="small muted" style="margin:12px 0 16px">${t("rotationInfo", days.length, esc(dayLabel(days[nextIdx].name)))}</div>
     ${days.map((d, i) => `
       <div class="card" style="${i === nextIdx ? 'border-color:var(--accent)' : ''}">
         <div class="row between">
-          <div style="font-weight:700">${esc(d.name)}</div>
-          ${i === nextIdx ? '<span class="pill" style="color:var(--accent-2); border-color:var(--accent)">Следующая</span>' : ''}
+          <div style="font-weight:700">${esc(dayLabel(d.name))}</div>
+          ${i === nextIdx ? `<span class="pill" style="color:var(--accent-2); border-color:var(--accent)">${esc(t("nextPill"))}</span>` : ''}
         </div>
-        <div class="small muted" style="margin-bottom:8px">${esc(d.block)}</div>
+        <div class="small muted" style="margin-bottom:8px">${esc(blockLabel(d.block))}</div>
         ${d.exercises.map((e, k) => `
           <div class="small" style="padding:4px 0">
-            <span class="muted">${k+1}.</span> ${esc(e.name)}
-            <span class="muted">— ${esc(e.scheme)}</span>
+            <span class="muted">${k+1}.</span> ${esc(exName(e.name))}
+            <span class="muted">— ${esc(fmtScheme(e.scheme))}</span>
           </div>
         `).join("")}
-        <button class="btn sm ghost" style="margin-top:10px" onclick="jumpToDay(${i})">Установить как следующую</button>
+        <button class="btn sm ghost" style="margin-top:10px" onclick="jumpToDay(${i})">${esc(t("setAsNext"))}</button>
       </div>
     `).join("")}
-    <h3>Таймер отдыха на телефоне</h3>
+
+    <h3>${esc(t("langTitle"))}</h3>
+    <div class="prog-switch">
+      ${LANGS.map(l => `
+        <button class="btn sm ${l.id === curLang() ? 'primary' : 'ghost'}"
+                onclick="switchLang('${l.id}')">${esc(l.label)}</button>
+      `).join("")}
+    </div>
+
+    <h3>${esc(t("nativeTimerTitle"))}</h3>
     <div class="card">
       <label class="row between" style="cursor:pointer; align-items:center">
         <div>
-          <div style="font-weight:600">Родной таймер iOS</div>
-          <div class="small muted">После подхода авто-запуск таймера в часах iPhone — виден на заблокированном экране и звонит.</div>
+          <div style="font-weight:600">${esc(t("nativeTimerName"))}</div>
+          <div class="small muted">${esc(t("nativeTimerDesc"))}</div>
         </div>
         <input type="checkbox" class="switch" ${state.settings.nativeTimer ? "checked" : ""} onchange="toggleNativeTimer(this.checked)">
       </label>
       <div style="margin-top:12px">
-        <div class="small muted" style="margin-bottom:4px">Название команды в «Командах»</div>
+        <div class="small muted" style="margin-bottom:4px">${esc(t("shortcutNameLabel"))}</div>
         <input type="text" value="${esc(state.settings.shortcutName || "")}" onchange="setShortcutName(this.value)" style="width:100%">
       </div>
-      <button class="btn sm ghost" style="margin-top:10px" onclick="launchNativeTimer(5)">Тест: таймер на 5 сек</button>
+      <button class="btn sm ghost" style="margin-top:10px" onclick="launchNativeTimer(5)">${esc(t("testTimer"))}</button>
       <details style="margin-top:12px">
-        <summary class="small" style="cursor:pointer; color:var(--accent-2)">Как настроить (один раз)</summary>
+        <summary class="small" style="cursor:pointer; color:var(--accent-2)">${esc(t("howToSetup"))}</summary>
         <ol class="small muted" style="margin:8px 0 0; padding-left:18px; line-height:1.6">
-          <li>Открой приложение <b>Команды</b> → «+» (новая команда).</li>
-          <li>Переименуй её точно в «<b>${esc(state.settings.shortcutName || "Таймер отдыха")}</b>» (как в поле выше).</li>
-          <li>Добавь действие <b>«Запустить таймер»</b>.</li>
-          <li>В длительности подставь переменную <b>«Вход команды»</b>, единицы — <b>секунды</b>.</li>
-          <li>(Необязательно) в начало добавь «Получить текст из Входа команды», чтобы число точно пришло.</li>
-          <li>Сохрани. Включи тумблер выше и проверь кнопкой «Тест».</li>
+          ${t("setupSteps", esc(state.settings.shortcutName || "Таймер отдыха")).map(li => `<li>${li}</li>`).join("")}
         </ol>
       </details>
     </div>
 
-    <h3>Данные</h3>
-    <button class="btn sm" onclick="exportData()">Экспорт JSON</button>
-    <button class="btn sm" onclick="importData()" style="margin-left:8px">Импорт</button>
-    <button class="btn sm danger" onclick="resetAll()" style="margin-left:8px">Сбросить</button>
+    <h3>${esc(t("guestTitle"))}</h3>
+    <div class="card">
+      <div class="small muted">${esc(t("guestDesc"))}</div>
+      ${guest ? `
+        <div style="margin-top:10px; font-weight:600">${esc(guest.name)}</div>
+        <div class="small muted">${esc(t("guestSince", fmtDate(guest.importedAt)))} · ${esc(t("guestTotals", guest.sessions.length, guest.sessions.reduce((n,s)=>n+countSets(s),0)))}</div>
+        <div class="row" style="gap:8px; margin-top:10px">
+          <button class="btn sm primary" onclick="location.hash='guest'">${esc(t("guestOpen"))}</button>
+          <button class="btn sm ghost" onclick="importGuest()">${esc(t("guestLoad"))}</button>
+          <button class="btn sm danger" onclick="removeGuest()">${esc(t("guestRemove"))}</button>
+        </div>
+      ` : `
+        <button class="btn sm" style="margin-top:10px" onclick="importGuest()">${esc(t("guestLoad"))}</button>
+      `}
+    </div>
+
+    <h3>${esc(t("dataTitle"))}</h3>
+    <button class="btn sm" onclick="exportData()">${esc(t("exportJson"))}</button>
+    <button class="btn sm" onclick="importData()" style="margin-left:8px">${esc(t("importBtn"))}</button>
+    <button class="btn sm danger" onclick="resetAll()" style="margin-left:8px">${esc(t("resetBtn"))}</button>
   `;
 }
 function toggleNativeTimer(on) {
   state.settings.nativeTimer = !!on;
   save();
-  toast(on ? "Родной таймер включён" : "Родной таймер выключен");
+  toast(on ? t("nativeTimerOn") : t("nativeTimerOff"));
 }
 function setShortcutName(val) {
   state.settings.shortcutName = String(val || "").trim();
@@ -1266,9 +1280,9 @@ function setShortcutName(val) {
 }
 function jumpToDay(i) {
   const day = activeDays()[i];
-  if (!confirm(`Установить "${day.name}" как следующую?`)) return;
+  if (!confirm(t("confirmSetNext", dayLabel(day.name)))) return;
   setNextDayIndex(i);
-  save(); toast("Установлено"); route();
+  save(); toast(t("setNextDone")); route();
 }
 function exportData() {
   const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
@@ -1286,20 +1300,149 @@ function importData() {
     r.onload = () => {
       try {
         const d = JSON.parse(r.result);
-        if (!confirm("Заменить текущие данные импортированными?")) return;
+        if (!confirm(t("confirmImport"))) return;
         state = migrate({ ...structuredClone(DEFAULT_STATE), ...d });
-        save(); route(); toast("Импортировано");
-      } catch { toast("Не удалось прочитать файл"); }
+        save(); route(); toast(t("imported"));
+      } catch { toast(t("badFile")); }
     };
     r.readAsText(f);
   };
   input.click();
 }
 function resetAll() {
-  if (!confirm("Удалить ВСЕ данные?")) return;
-  if (!confirm("Точно? Действие необратимо.")) return;
+  if (!confirm(t("confirmReset"))) return;
+  if (!confirm(t("confirmResetTwice"))) return;
   state = structuredClone(DEFAULT_STATE);
-  save(); route(); toast("Сброшено");
+  save(); route(); toast(t("resetDone"));
+}
+
+// ====== ЯЗЫК ======
+// Выбор языка живёт в настройках устройства: у каждого телефона свой.
+// Данные (названия упражнений, дней) всегда хранятся русскими ключами,
+// поэтому переключение языка ничего не ломает в истории и рекордах.
+function switchLang(id) {
+  if (!LANGS.some(l => l.id === id)) return;
+  state.settings.lang = id;
+  save();
+  applyStaticLabels();
+  route();
+  toast(t("langSwitched"));
+}
+// Подписи, которые лежат статикой в index.html (нижняя навигация и таймер).
+function applyStaticLabels() {
+  document.documentElement.lang = curLang();
+  const map = { home: "navHome", history: "navHistory", prs: "navPRs", body: "navBody" };
+  $$("nav.bottom a").forEach(a => {
+    const key = map[a.dataset.route];
+    if (!key) return;
+    const last = a.lastChild;
+    if (last && last.nodeType === Node.TEXT_NODE) last.nodeValue = t(key);
+  });
+  const plus = $("#restPlus"); if (plus) plus.textContent = t("restPlus15");
+  const skip = $("#restSkip"); if (skip) skip.textContent = t("restSkip");
+  if (!restEnd) { const rl = $("#restLabel"); if (rl) rl.textContent = t("rest"); }
+}
+
+// ====== ПРОСМОТР ЧУЖИХ РЕЗУЛЬТАТОВ (только чтение) ======
+// Хранится под отдельным ключом, поэтому импорт чужого бэкапа никогда
+// не затрагивает собственные данные и не меняет выбранный язык.
+const GUEST_KEY = "gymtracker.guest";
+
+function loadGuest() {
+  try {
+    const g = JSON.parse(localStorage.getItem(GUEST_KEY) || "null");
+    return g && Array.isArray(g.sessions) ? g : null;
+  } catch { return null; }
+}
+function importGuest() {
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = "application/json";
+  input.onchange = () => {
+    const f = input.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      let d;
+      try { d = JSON.parse(r.result); } catch { toast(t("badFile")); return; }
+      const sessions = Array.isArray(d?.sessions) ? d.sessions.filter(s => s && s.completed && Array.isArray(s.exercises)) : [];
+      if (!sessions.length) { toast(t("guestEmpty")); return; }
+      const fallback = t("guestDefaultName");
+      const name = String(prompt(t("guestNameAsk"), fallback) || fallback).trim() || fallback;
+      localStorage.setItem(GUEST_KEY, JSON.stringify({
+        name,
+        importedAt: new Date().toISOString(),
+        sessions,
+        bodyWeights: Array.isArray(d?.bodyWeights) ? d.bodyWeights : [],
+      }));
+      toast(t("guestLoaded"));
+      if (location.hash === "#guest") route(); else location.hash = "guest";
+    };
+    r.readAsText(f);
+  };
+  input.click();
+}
+function removeGuest() {
+  localStorage.removeItem(GUEST_KEY);
+  toast(t("guestRemoved"));
+  if (location.hash === "#program") route(); else location.hash = "program";
+}
+function renderGuest(app) {
+  const g = loadGuest();
+  if (!g) { app.innerHTML = `<div class="empty">${esc(t("guestNothing"))}</div>`; return; }
+  const sessions = g.sessions.slice().sort((a,b)=>String(b.startedAt).localeCompare(String(a.startedAt)));
+  const prs = computePRs(g.sessions);
+  const totalSets = g.sessions.reduce((n,s)=>n+countSets(s),0);
+  app.innerHTML = `
+    <header class="top">
+      <button class="btn sm ghost" onclick="location.hash='program'">${icon("arrowLeft",16)} ${esc(t("back"))}</button>
+      <button class="btn sm danger" onclick="removeGuest()">${esc(t("guestRemove"))}</button>
+    </header>
+    <h1>${esc(g.name)}</h1>
+    <div class="pill">${esc(t("guestBadge"))}</div>
+    <div class="small muted" style="margin-top:6px">${esc(t("guestSince", fmtDate(g.importedAt)))} · ${esc(t("guestTotals", g.sessions.length, totalSets))}</div>
+
+    ${prs.length ? `
+      <h3>${esc(t("guestPRs"))}</h3>
+      ${prs.map(([name, pr]) => `
+        <div class="list-item">
+          <div>
+            <div class="title">${esc(exName(name))}</div>
+            <div class="sub">${fmtDate(pr.date)}</div>
+          </div>
+          <div class="right">
+            <div style="font-weight:700; color:var(--text)">${pr.weight} × ${pr.reps}</div>
+            <div class="sub">${esc(t("e1rm", pr.e1rm.toFixed(1)))}</div>
+          </div>
+        </div>
+      `).join("")}
+    ` : ""}
+
+    <h3>${esc(t("guestWorkouts"))}</h3>
+    ${sessions.map(s => `
+      <div class="list-item" onclick="location.hash='guestsession/${s.id}'">
+        <div>
+          <div class="title">${esc(dayLabel(s.dayName))}</div>
+          <div class="sub">${fmtDateTime(s.startedAt)} · ${esc(t("sessionMeta", countSets(s), sessionVolume(s)))}</div>
+        </div>
+        <div class="right">${icon("chevronRight",18)}</div>
+      </div>
+    `).join("")}
+  `;
+}
+function renderGuestSession(id) {
+  const app = $("#app");
+  const s = loadGuest()?.sessions.find(x => x.id === id);
+  if (!s) { app.innerHTML = `<div class="empty">${esc(t("sessionNotFound"))}</div>`; return; }
+  app.innerHTML = `
+    <header class="top">
+      <button class="btn sm ghost" onclick="location.hash='guest'">${icon("arrowLeft",16)} ${esc(t("back"))}</button>
+    </header>
+    <h1>${esc(dayLabel(s.dayName))}</h1>
+    <div class="small muted">${fmtDateTime(s.startedAt)} · ${esc(blockLabel(s.block))}</div>
+    <div class="small muted">${esc(t("sessionTotals", countSets(s), sessionVolume(s)))}</div>
+    <div style="margin-top:20px">
+      ${sessionExercisesHtml(s, { clickable: false })}
+    </div>
+  `;
 }
 
 // ====== CONFETTI ======
@@ -1348,6 +1491,7 @@ Object.assign(window, {
   openBodyWeightModal, saveBW, deleteBW, closeModal,
   deleteSession, jumpToDay, exportData, importData, resetAll,
   switchProgram, openExerciseHistory, launchNativeTimer, toggleNativeTimer, setShortcutName,
+  switchLang, importGuest, removeGuest,
 });
 
 // Hydrate nav icons
@@ -1357,6 +1501,7 @@ $$("nav.bottom a[data-ico]").forEach(a => {
 });
 
 // ====== BOOT ======
+applyStaticLabels();
 route();
 // Greet on every open — small delay so route renders first.
 setTimeout(showWelcome, 220);

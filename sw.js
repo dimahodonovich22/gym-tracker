@@ -1,10 +1,11 @@
-const CACHE = "gymtracker-v18";
+const CACHE = "gymtracker-v19";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./program.js",
+  "./i18n.js",
   "./icons.js",
   "./manifest.json",
   "./icon-192.png",
